@@ -1,0 +1,24 @@
+# Roblox / Rojo build artifacts
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Rojo / tooling generated
+sourcemap.json
+/build/
+
+# Wally packages
+/Packages/
+/ServerPackages/
+/DevPackages/
+wally.lock
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
