@@ -16,6 +16,7 @@ Remotes.SelectTeam = "SelectTeam"                    -- team: "Red" | "Blue" | "
 Remotes.RequestPass = "RequestPass"                  -- pass to my best teammate
 Remotes.RequestShoot = "RequestShoot"                -- charge: number 0..1 (release power)
 Remotes.RequestTackle = "RequestTackle"              -- attempt a steal in front of me
+Remotes.RequestNutmeg = "RequestNutmeg"              -- poke the ball through a close defender
 Remotes.SetSprint = "SetSprint"                      -- on: boolean (hold to sprint)
 
 -- server -> client
@@ -24,6 +25,7 @@ Remotes.Countdown = "Countdown"                 -- n: 3,2,1 then 0 = GO
 Remotes.GoalScored = "GoalScored"               -- { team = "Red"|"Blue", scorer = string }
 Remotes.StaminaUpdate = "StaminaUpdate"         -- value: number 0..1 (this player)
 Remotes.PossessionChanged = "PossessionChanged" -- userId: number (0 = loose ball / bot)
+Remotes.Nutmeg = "Nutmeg"                       -- { name = string, byUserId = number }
 Remotes.Toast = "Toast"                         -- text: string (small friendly message)
 
 local ALL_EVENTS = {
@@ -32,12 +34,14 @@ local ALL_EVENTS = {
 	Remotes.RequestPass,
 	Remotes.RequestShoot,
 	Remotes.RequestTackle,
+	Remotes.RequestNutmeg,
 	Remotes.SetSprint,
 	Remotes.MatchState,
 	Remotes.Countdown,
 	Remotes.GoalScored,
 	Remotes.StaminaUpdate,
 	Remotes.PossessionChanged,
+	Remotes.Nutmeg,
 	Remotes.Toast,
 }
 

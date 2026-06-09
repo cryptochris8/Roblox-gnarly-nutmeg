@@ -6,6 +6,7 @@
 --   Shoot  : hold LMB / R2 / touch -> charge, release to fire
 --   Pass   : E / L1 / touch
 --   Tackle : F / X / touch
+--   Nutmeg : Q / Y / touch (poke the ball through a close defender)
 --   Sprint : LeftShift / L2 / touch (hold)
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -19,7 +20,7 @@ local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local InputController = {}
 
 local CHARGE_SECONDS = GameConfig.Kick.ChargeSeconds
-local passEvent, shootEvent, tackleEvent, sprintEvent
+local passEvent, shootEvent, tackleEvent, nutmegEvent, sprintEvent
 local chargeStart = nil
 local hudRef = nil
 
@@ -33,6 +34,13 @@ end
 local function onTackle(_, state)
 	if state == Enum.UserInputState.Begin then
 		tackleEvent:FireServer()
+	end
+	return Enum.ContextActionResult.Pass
+end
+
+local function onNutmeg(_, state)
+	if state == Enum.UserInputState.Begin then
+		nutmegEvent:FireServer()
 	end
 	return Enum.ContextActionResult.Pass
 end
@@ -67,16 +75,19 @@ function InputController.start(hud)
 	passEvent = Remotes.get(Remotes.RequestPass)
 	shootEvent = Remotes.get(Remotes.RequestShoot)
 	tackleEvent = Remotes.get(Remotes.RequestTackle)
+	nutmegEvent = Remotes.get(Remotes.RequestNutmeg)
 	sprintEvent = Remotes.get(Remotes.SetSprint)
 
 	ContextActionService:BindAction("GN_Shoot", onShoot, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
 	ContextActionService:BindAction("GN_Pass", onPass, true, Enum.KeyCode.E, Enum.KeyCode.ButtonL1)
 	ContextActionService:BindAction("GN_Tackle", onTackle, true, Enum.KeyCode.F, Enum.KeyCode.ButtonX)
+	ContextActionService:BindAction("GN_Nutmeg", onNutmeg, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonY)
 	ContextActionService:BindAction("GN_Sprint", onSprint, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL2)
 
 	ContextActionService:SetTitle("GN_Shoot", "Shoot")
 	ContextActionService:SetTitle("GN_Pass", "Pass")
 	ContextActionService:SetTitle("GN_Tackle", "Tackle")
+	ContextActionService:SetTitle("GN_Nutmeg", "Nutmeg")
 	ContextActionService:SetTitle("GN_Sprint", "Sprint")
 
 	-- Live-update the charge meter while holding shoot.

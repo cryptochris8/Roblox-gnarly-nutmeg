@@ -29,6 +29,8 @@ local stunnedUntil: { [Player]: number } = {}
 local stamina: { [Player]: number } = {}
 local lastAction: { [Player]: { [string]: number } } = {}
 local lastStaminaSend: { [Player]: number } = {}
+local burstUntil: { [Player]: number } = {}
+local burstMult: { [Player]: number } = {}
 
 local staminaEvent: RemoteEvent
 
@@ -134,6 +136,12 @@ function PlayerService.isStunned(player: Player): boolean
 	return (stunnedUntil[player] or 0) > os.clock()
 end
 
+-- Short speed burst on top of the normal walk/sprint speed (the nutmeg reward).
+function PlayerService.burst(player: Player, mult: number, seconds: number)
+	burstMult[player] = mult
+	burstUntil[player] = os.clock() + seconds
+end
+
 function PlayerService.stun(player: Player, seconds: number)
 	stunnedUntil[player] = os.clock() + seconds
 end
@@ -189,6 +197,9 @@ local function step(dt: number)
 					st = math.min(STA.Max, st + STA.RegenPerSecond * dt)
 					hum.WalkSpeed = PLAYER.WalkSpeed
 				end
+				if (burstUntil[player] or 0) > now then
+					hum.WalkSpeed *= burstMult[player] or 1
+				end
 				stamina[player] = st
 			end
 
@@ -226,6 +237,8 @@ function PlayerService.init()
 		stamina[player] = nil
 		lastAction[player] = nil
 		lastStaminaSend[player] = nil
+		burstUntil[player] = nil
+		burstMult[player] = nil
 	end)
 
 	RunService.Heartbeat:Connect(step)

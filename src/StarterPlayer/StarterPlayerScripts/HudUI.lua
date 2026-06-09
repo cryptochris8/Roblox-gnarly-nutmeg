@@ -16,6 +16,7 @@ local staminaFill
 local chargeHolder, chargeFill
 local countdownLabel
 local goalFrame, goalLabel
+local megLabel
 local toastLabel
 local resultFrame, resultLabel
 local ballChip
@@ -185,6 +186,22 @@ function HudUI.mount(playerGui)
 	})
 	UiTheme.stroke(C.Ink, 3, goalLabel)
 
+	-- NUTMEG! splash (a quick flashy stamp when anyone pulls one off)
+	megLabel = UiTheme.make("TextLabel", {
+		Name = "NutmegSplash",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.3, 0),
+		Size = UDim2.fromOffset(520, 90),
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 64,
+		TextColor3 = C.Charge,
+		Text = "NUTMEG!",
+		Visible = false,
+		Parent = gui,
+	})
+	UiTheme.stroke(C.Ink, 3, megLabel)
+
 	-- Toast (under the scoreboard)
 	toastLabel = UiTheme.make("TextLabel", {
 		Name = "Toast",
@@ -290,6 +307,24 @@ function HudUI.goal(info)
 	task.delay(2.4, function()
 		goalLabel.Visible = false
 		TweenService:Create(goalFrame, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+	end)
+end
+
+function HudUI.nutmeg(info)
+	if not gui then
+		return
+	end
+	local name = info and info.name or "Someone"
+	megLabel.Rotation = -8
+	megLabel.Visible = true
+	TweenService:Create(
+		megLabel,
+		TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Rotation = 0 }
+	):Play()
+	HudUI.toast(name .. " pulled off a NUTMEG! 🔥")
+	task.delay(1.6, function()
+		megLabel.Visible = false
 	end)
 end
 

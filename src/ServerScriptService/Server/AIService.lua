@@ -22,6 +22,7 @@ local Roles = require(Shared:WaitForChild("Roles"))
 
 local TeamService = require(script.Parent.TeamService)
 local BallService = require(script.Parent.BallService)
+local BotAnimationService = require(script.Parent.BotAnimationService)
 
 local TAG = "Footballer"
 local SHOOT_RANGE = 55
@@ -128,6 +129,17 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 		hum.WalkSpeed = def.isKeeper and (GameConfig.Player.WalkSpeed + 4) or GameConfig.Player.WalkSpeed
 		hum.AutoRotate = true
 		hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None -- no floating name tags
+		-- the Animator must exist BEFORE the model replicates for server-played
+		-- animation tracks to show on clients (BotAnimationService drives it)
+		if not hum:FindFirstChildOfClass("Animator") then
+			Instance.new("Animator").Parent = hum
+		end
+	end
+	-- the bundled Animate LocalScript never runs for an NPC; drop it so nothing
+	-- ever fights our server-side animation driver
+	local animate = bot:FindFirstChild("Animate")
+	if animate then
+		animate:Destroy()
 	end
 
 	dressInKit(bot, info)
@@ -145,6 +157,7 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 			(root :: any):SetNetworkOwner(nil)
 		end)
 	end
+	BotAnimationService.attach(bot)
 	return bot
 end
 
@@ -225,8 +238,14 @@ local function decideBot(entry: BotEntry)
 				break
 			end
 		end
-		if pressured and math.random() < 0.7 and BallService.passFrom(model) then
-			return
+		if pressured then
+			-- a flash of skill: sometimes meg the defender instead of passing
+			if math.random() < 0.2 and BallService.nutmegFrom(model) then
+				return
+			end
+			if math.random() < 0.7 and BallService.passFrom(model) then
+				return
+			end
 		end
 		hum:MoveTo(Vector3.new(targetGoal.X, myPos.Y, targetGoal.Z))
 		return

@@ -1,10 +1,10 @@
 --!strict
 -- BallService (SERVER) -- the heart of the game.
--- Owns the single match ball and possession. Possession is the proven "attach &
--- follow" model from the original (sidesteps networked physics contests): while a
--- player carries the ball it is anchored just in front of them; a pass/shot/tackle
--- releases it as a real physics body with a set velocity. Also handles loose-ball
--- pickup, goal detection (CENTRE-in-box), and a safety reset.
+-- Owns the single match ball and possession. The ball is ALWAYS a real physics
+-- body: while carried it is STEERED to roll a few studs ahead of the carrier
+-- (never anchored); a pass/shot/tackle/nutmeg releases it with a set velocity.
+-- Also handles loose-ball pickup, goal detection (CENTRE-in-box), and a safety
+-- reset.
 --
 -- Footballers (human characters AND bots) are found via the CollectionService tag
 -- "Footballer" + attributes Team/Role/IsBot/UserId, so this service never has to
@@ -30,6 +30,8 @@ local KICK = GameConfig.Kick
 local TACKLE = GameConfig.Tackle
 local GOAL = GameConfig.Goal
 local DRIB = GameConfig.Dribble
+local NUTMEG = GameConfig.Nutmeg
+local VFX = GameConfig.Vfx
 
 local TAG = "Footballer"
 
@@ -47,8 +49,11 @@ local BallService = {}
 
 -- Set by Main: BallService.onGoal(scoreTeam: string)
 BallService.onGoal = nil :: (((scoreTeam: string) -> ())?)
+-- Set by Main: BallService.onNutmeg(byModel, victimModel) -- a successful meg
+BallService.onNutmeg = nil :: (((byModel: Model, victimModel: Model) -> ())?)
 
 local ball: Part? = nil
+local shotTrail: Trail? = nil
 local carrier: Model? = nil
 local lastTouchTeam: string? = nil
 local lastCarrierUserId = 0
@@ -263,6 +268,57 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	return true
 end
 
+-- The signature move: poke the ball low THROUGH the closest defender ahead (a
+-- "nutmeg") -- they stumble briefly and can't instantly reclaim it, and Main
+-- rewards the dribbler with a speed burst to run round and re-collect. With no
+-- defender in front it degrades to a simple knock-and-run touch.
+-- Returns true if the ball was released.
+function BallService.nutmegFrom(fromModel: Model): boolean
+	if carrier ~= fromModel or not ball then
+		return false
+	end
+	local root = fromModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return false
+	end
+	local team = (fromModel:GetAttribute("Team") :: string?) or ""
+	local fwd = root.CFrame.LookVector
+	fwd = Vector3.new(fwd.X, 0, fwd.Z)
+	fwd = fwd.Magnitude > 0.1 and fwd.Unit or Vector3.new(0, 0, 1)
+
+	-- the closest opponent ahead of us within megging range
+	local victim: Footballer? = nil
+	local vd = math.huge
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team ~= team and f.model ~= fromModel then
+			local rel = Vector3.new(f.root.Position.X - root.Position.X, 0, f.root.Position.Z - root.Position.Z)
+			local d = rel.Magnitude
+			if d <= NUTMEG.Range and d > 0.1 and fwd:Dot(rel.Unit) >= NUTMEG.FrontDot and d < vd then
+				vd = d
+				victim = f
+			end
+		end
+	end
+
+	setPossession(nil)
+	lastKicker = fromModel
+	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
+	if victim then
+		local v = victim :: Footballer
+		local through = Vector3.new(v.root.Position.X - root.Position.X, 0, v.root.Position.Z - root.Position.Z)
+		through = through.Magnitude > 0.1 and through.Unit or fwd
+		ball.AssemblyLinearVelocity = through * NUTMEG.PokeSpeed -- flat: stays on the grass, between the legs
+		applyStun(v.model, NUTMEG.VictimStumbleSeconds)
+		local cb = BallService.onNutmeg
+		if cb then
+			task.spawn(cb, fromModel, v.model)
+		end
+	else
+		ball.AssemblyLinearVelocity = fwd * NUTMEG.KnockOnSpeed
+	end
+	return true
+end
+
 -- Attempt a steal: must face an opposing carrier within range. Returns true on win.
 function BallService.tackleAttempt(byModel: Model): boolean
 	if not ball or not carrier or carrier == byModel then
@@ -331,6 +387,29 @@ local function spawnBall()
 		d.Texture = tex
 		d.Parent = b
 	end
+	-- a streak that lights up while the ball really flies (cosmetic only)
+	shotTrail = nil
+	pcall(function()
+		local a0 = Instance.new("Attachment")
+		a0.Position = Vector3.new(0, BALL.Diameter * 0.3, 0)
+		a0.Parent = b
+		local a1 = Instance.new("Attachment")
+		a1.Position = Vector3.new(0, -BALL.Diameter * 0.3, 0)
+		a1.Parent = b
+		local trail = Instance.new("Trail")
+		trail.Name = "ShotTrail"
+		trail.Attachment0 = a0
+		trail.Attachment1 = a1
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+		trail.Transparency = NumberSequence.new(0.2, 1)
+		trail.Lifetime = 0.25
+		trail.WidthScale = NumberSequence.new(1, 0.3)
+		trail.FaceCamera = true
+		trail.LightEmission = 0.6
+		trail.Enabled = false
+		trail.Parent = b
+		shotTrail = trail
+	end)
 	b.Parent = Workspace
 	ball = b
 	pcall(function()
@@ -492,6 +571,11 @@ function BallService.init(world: WorldService.World)
 		end
 		checkGoal()
 		checkSafety()
+		local trail = shotTrail
+		if trail and ball then
+			local v = ball.AssemblyLinearVelocity
+			trail.Enabled = carrier == nil and Vector3.new(v.X, 0, v.Z).Magnitude > VFX.ShotTrailMinSpeed
+		end
 	end)
 end
 

@@ -8,6 +8,7 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -90,6 +91,37 @@ local function computeResult()
 	end
 end
 
+-- Confetti fountain over the goal mouth the ball just went into (cosmetic; the
+-- emitter is server-side so everyone sees the same celebration).
+local function celebrate(scoreTeam: string)
+	local info = TeamService.info(scoreTeam)
+	local mouth = TeamService.ownGoalCenter(info.opponent)
+	local part = Instance.new("Part")
+	part.Name = "GoalConfetti"
+	part.Anchored = true
+	part.CanCollide = false
+	part.Transparency = 1
+	part.Size = Vector3.new(GameConfig.Goal.Width, 1, 2)
+	part.CFrame = CFrame.new(mouth + Vector3.new(0, GameConfig.Goal.Height + 2, 0))
+	part.Parent = Workspace
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Color = ColorSequence.new(info.color, Color3.fromRGB(255, 230, 120))
+	emitter.LightEmission = 0.7
+	emitter.Size = NumberSequence.new(0.8)
+	emitter.Lifetime = NumberRange.new(1.2, 2.2)
+	emitter.Speed = NumberRange.new(18, 34)
+	emitter.SpreadAngle = Vector2.new(55, 55)
+	emitter.Acceleration = Vector3.new(0, -28, 0)
+	emitter.Rotation = NumberRange.new(0, 360)
+	emitter.RotSpeed = NumberRange.new(-220, 220)
+	emitter.Rate = 0
+	emitter.Parent = part
+	emitter:Emit(180)
+	task.delay(3, function()
+		part:Destroy()
+	end)
+end
+
 -- Reacts to a goal from BallService (fires on the server).
 local function onGoal(scoreTeam: string)
 	if state ~= "Playing" then
@@ -111,6 +143,7 @@ local function onGoal(scoreTeam: string)
 	if goalEvent then
 		goalEvent:FireAllClients({ team = scoreTeam, red = scores.Red, blue = scores.Blue })
 	end
+	pcall(celebrate, scoreTeam)
 	broadcastNow()
 
 	-- Celebrate, then resume from a fresh kickoff (unless the half just ended).

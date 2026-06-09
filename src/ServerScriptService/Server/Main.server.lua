@@ -2,6 +2,7 @@
 -- Main (SERVER ENTRY POINT)
 -- Wires Gnarly Nutmeg together in the right order and kicks off the match loop.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -17,6 +18,7 @@ local TeamService = require(script.Parent.TeamService)
 local PlayerService = require(script.Parent.PlayerService)
 local WorldService = require(script.Parent.WorldService)
 local BallService = require(script.Parent.BallService)
+local BotAnimationService = require(script.Parent.BotAnimationService)
 local AIService = require(script.Parent.AIService)
 local MatchService = require(script.Parent.MatchService)
 
@@ -27,12 +29,34 @@ PlayerService.init()     -- stamina loop + character hooks
 
 local world = WorldService.build() -- build the pitch from code
 BallService.init(world)            -- spawn the ball + possession loop
+BotAnimationService.init()         -- animates bot rigs (humans animate themselves)
 AIService.init()                   -- bot decision loop (idle until a match is active)
 MatchService.init(world)           -- match state machine + continuous match loop
 
--- 4) Wire client input intents. The server validates everything.
+-- 4) Cross-service hooks + client input intents. The server validates everything.
 local STA = GameConfig.Stamina
 local TACKLE = GameConfig.Tackle
+local NUTMEG = GameConfig.Nutmeg
+
+-- A successful nutmeg: burst the dribbler past their victim, count the stat,
+-- and let every client celebrate it.
+local nutmegEvent = Remotes.get(Remotes.Nutmeg)
+BallService.onNutmeg = function(byModel, _victimModel)
+	local uid = (byModel:GetAttribute("UserId") :: number?) or 0
+	local name: string
+	if uid ~= 0 then
+		local plr = Players:GetPlayerByUserId(uid)
+		if plr then
+			PlayerService.burst(plr, NUTMEG.BurstMultiplier, NUTMEG.BurstSeconds)
+			PlayerDataService.addNutmeg(plr)
+		end
+		name = plr and plr.DisplayName or "Someone"
+	else
+		local team = (byModel:GetAttribute("Team") :: string?) or ""
+		name = (team ~= "") and ("A " .. team .. " bot") or "A bot"
+	end
+	nutmegEvent:FireAllClients({ name = name, byUserId = uid })
+end
 
 Remotes.get(Remotes.RequestPass).OnServerEvent:Connect(function(player)
 	local char = player.Character
@@ -58,6 +82,14 @@ Remotes.get(Remotes.RequestTackle).OnServerEvent:Connect(function(player)
 	if char and not BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "tackle", TACKLE.Cooldown) then
 		PlayerService.spendStamina(player, STA.TackleCost)
 		BallService.tackleAttempt(char)
+	end
+end)
+
+Remotes.get(Remotes.RequestNutmeg).OnServerEvent:Connect(function(player)
+	local char = player.Character
+	if char and BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "nutmeg", NUTMEG.Cooldown) then
+		PlayerService.spendStamina(player, STA.NutmegCost)
+		BallService.nutmegFrom(char)
 	end
 end)
 

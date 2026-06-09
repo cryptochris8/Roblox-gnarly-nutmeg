@@ -37,19 +37,21 @@ export type Profile = {
 	Losses: number,
 	Draws: number,
 	Matches: number,
+	Nutmegs: number,
 }
 
 local profiles: { [Player]: Profile } = {}
 local loadedOk: { [Player]: boolean } = {}
 
 local function newProfile(): Profile
-	return { Goals = 0, Wins = 0, Losses = 0, Draws = 0, Matches = 0 }
+	return { Goals = 0, Wins = 0, Losses = 0, Draws = 0, Matches = 0, Nutmegs = 0 }
 end
 
 local function serialize(p: Profile)
 	return {
 		version = DATA_VERSION,
 		Goals = p.Goals, Wins = p.Wins, Losses = p.Losses, Draws = p.Draws, Matches = p.Matches,
+		Nutmegs = p.Nutmegs,
 	}
 end
 
@@ -61,6 +63,7 @@ local function deserialize(data: any): Profile
 		p.Losses = tonumber(data.Losses) or 0
 		p.Draws = tonumber(data.Draws) or 0
 		p.Matches = tonumber(data.Matches) or 0
+		p.Nutmegs = tonumber(data.Nutmegs) or 0
 	end
 	return p
 end
@@ -129,6 +132,10 @@ local function setupLeaderstats(player: Player, p: Profile)
 	wins.Name = "Wins"
 	wins.Value = p.Wins
 	wins.Parent = stats
+	local megs = Instance.new("IntValue")
+	megs.Name = "Nutmegs"
+	megs.Value = p.Nutmegs
+	megs.Parent = stats
 	stats.Parent = player
 end
 
@@ -145,6 +152,10 @@ local function refresh(player: Player, p: Profile)
 	if wins then
 		wins.Value = p.Wins
 	end
+	local megs = stats:FindFirstChild("Nutmegs") :: IntValue?
+	if megs then
+		megs.Value = p.Nutmegs
+	end
 end
 
 function PlayerDataService.get(player: Player): Profile?
@@ -157,6 +168,15 @@ function PlayerDataService.addGoal(player: Player)
 		return
 	end
 	p.Goals += 1
+	refresh(player, p)
+end
+
+function PlayerDataService.addNutmeg(player: Player)
+	local p = profiles[player]
+	if not p then
+		return
+	end
+	p.Nutmegs += 1
 	refresh(player, p)
 end
 

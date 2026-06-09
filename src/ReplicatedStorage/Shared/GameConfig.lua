@@ -87,6 +87,25 @@ GameConfig.Tackle = {
 	Cooldown = 1.0,
 }
 
+-- ---- Nutmeg (the signature skill move) --------------------------------------
+-- Poke the ball low THROUGH a close defender's legs: they stumble, you burst
+-- past and re-collect. With nobody in front it's a simple knock-and-run touch.
+GameConfig.Nutmeg = {
+	Range = 7,               -- a defender this close (and ahead) can be megged
+	FrontDot = 0.45,         -- how directly ahead the defender must be (cosine)
+	PokeSpeed = 70,          -- low, fast poke through the legs
+	KnockOnSpeed = 45,       -- knock-and-run touch when nobody is in front
+	VictimStumbleSeconds = 0.9,
+	BurstMultiplier = 1.35,  -- the winner's speed burst...
+	BurstSeconds = 1.1,      -- ...and how long it lasts
+	Cooldown = 2.5,
+}
+
+-- ---- Cosmetics ---------------------------------------------------------------
+GameConfig.Vfx = {
+	ShotTrailMinSpeed = 100, -- a loose ball faster than this leaves a streak (shots, not passes)
+}
+
 -- ---- Player movement & stamina (faster, to suit the bigger field) ---------
 GameConfig.Player = {
 	WalkSpeed = 22,
@@ -102,6 +121,7 @@ GameConfig.Stamina = {
 	ShootCost = 8,
 	TackleCost = 5,
 	PassCost = 2,
+	NutmegCost = 10,
 	MinToSprint = 5,
 }
 

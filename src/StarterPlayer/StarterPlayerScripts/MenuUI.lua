@@ -70,12 +70,12 @@ function MenuUI.mount(playerGui)
 		UiTheme.make("TextLabel", {
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.new(0.5, 0, 1, -44),
-			Size = UDim2.fromOffset(560, 22),
+			Size = UDim2.fromOffset(680, 22),
 			BackgroundTransparency = 1,
 			Font = UiTheme.Body,
 			TextSize = 15,
 			TextColor3 = C.Panel,
-			Text = "Hold LMB = Shoot   •   E = Pass   •   F = Tackle   •   Shift = Sprint",
+			Text = "Hold LMB = Shoot   •   E = Pass   •   Q = Nutmeg   •   F = Tackle   •   Shift = Sprint",
 			Parent = gui,
 		}).TextStrokeTransparency = 0.4
 	end
