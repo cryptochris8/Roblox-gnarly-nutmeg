@@ -180,7 +180,7 @@ local function bestTeammate(fromModel: Model, team: string, ballPos: Vector3): F
 		if f.team == team and f.model ~= fromModel then
 			local rel = Vector3.new(f.root.Position.X - ballPos.X, 0, f.root.Position.Z - ballPos.Z)
 			local dist = rel.Magnitude
-			if dist >= 6 and dist <= 70 then
+			if dist >= 6 and dist <= KICK.PassMaxRange then
 				local forward = (dist > 0) and toGoal:Dot(rel.Unit) or 0 -- -1..1
 				local score = forward * 30 - dist * 0.25
 				if not f.isBot then

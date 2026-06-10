@@ -113,7 +113,9 @@ function TeamService.assignHuman(player: Player, preferred: TeamName?): (TeamNam
 	local formation = TeamService.formation(team)
 	local taken = takenRoles[team]
 	local role: Roles.RoleKey? = nil
-	for _, rk in ipairs(formation) do
+	-- humans get the most ATTACKING open outfield role first (striker > mids > backs)
+	for i = #formation, 1, -1 do
+		local rk = formation[i]
 		if rk ~= GameConfig.GoalkeeperRole and not taken[rk] then
 			role = rk
 			break

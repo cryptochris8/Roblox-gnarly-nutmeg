@@ -135,6 +135,14 @@ end
 local function buildMarkings(parent: Instance)
 	pcall(function()
 		local MinX, MaxX, MinZ, MaxZ = FIELD.MinX, FIELD.MaxX, FIELD.MinZ, FIELD.MaxZ
+		-- FIFA-proportioned marking sizes derived from the pitch (ratios of the
+		-- 105m x 68m laws-of-the-game pitch) so ANY Field size keeps a true layout
+		local boxHalfW = WIDTH * 0.295   -- penalty box: 40.3m wide
+		local boxDepth = LENGTH * 0.16   -- 16.5m deep
+		local gboxHalfW = WIDTH * 0.135  -- goal box: 18.3m wide
+		local gboxDepth = LENGTH * 0.052 -- 5.5m deep
+		local spotDist = LENGTH * 0.105  -- penalty spot: 11m out
+		local circleR = WIDTH * 0.135    -- centre circle: 9.15m radius
 		-- perimeter (inset 1 stud from the boundary)
 		lineAlongZ(MinX + 1, MinZ + 1, MaxZ - 1, parent)
 		lineAlongZ(MaxX - 1, MinZ + 1, MaxZ - 1, parent)
@@ -142,20 +150,20 @@ local function buildMarkings(parent: Instance)
 		lineAlongX(MaxZ - 1, MinX + 1, MaxX - 1, parent)
 		-- halfway line + centre circle + spot
 		lineAlongX(CZ, MinX + 1, MaxX - 1, parent)
-		circleRing(CX, CZ, 14, parent)
+		circleRing(CX, CZ, circleR, parent)
 		spot(CX, CZ, parent)
 		-- penalty + goal boxes at each end
 		for _, e in ipairs({ { z = MinZ, dir = 1 }, { z = MaxZ, dir = -1 } }) do
 			local gz, d = e.z, e.dir
-			local pFront = gz + d * 22 -- penalty box depth
-			lineAlongX(pFront, -22, 22, parent)
-			lineAlongZ(-22, gz + d * 1, pFront, parent)
-			lineAlongZ(22, gz + d * 1, pFront, parent)
-			local gFront = gz + d * 9 -- goal box depth
-			lineAlongX(gFront, -12, 12, parent)
-			lineAlongZ(-12, gz + d * 1, gFront, parent)
-			lineAlongZ(12, gz + d * 1, gFront, parent)
-			spot(CX, gz + d * 14, parent) -- penalty spot
+			local pFront = gz + d * boxDepth
+			lineAlongX(pFront, CX - boxHalfW, CX + boxHalfW, parent)
+			lineAlongZ(CX - boxHalfW, gz + d * 1, pFront, parent)
+			lineAlongZ(CX + boxHalfW, gz + d * 1, pFront, parent)
+			local gFront = gz + d * gboxDepth
+			lineAlongX(gFront, CX - gboxHalfW, CX + gboxHalfW, parent)
+			lineAlongZ(CX - gboxHalfW, gz + d * 1, gFront, parent)
+			lineAlongZ(CX + gboxHalfW, gz + d * 1, gFront, parent)
+			spot(CX, gz + d * spotDist, parent)
 		end
 	end)
 end
@@ -197,7 +205,7 @@ local function buildStands(parent: Instance)
 			local light = Instance.new("SpotLight")
 			light.Face = Enum.NormalId.Bottom
 			light.Angle = 130
-			light.Range = 140
+			light.Range = math.max(140, LENGTH * 0.75)
 			light.Brightness = 3
 			light.Color = Color3.fromRGB(255, 250, 235)
 			light.Parent = lamp

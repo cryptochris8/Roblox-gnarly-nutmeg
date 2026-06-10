@@ -13,7 +13,7 @@
 local GameConfig = {}
 
 -- ---- Teams & match flow ----------------------------------------------------
-GameConfig.PlayersPerTeam = 3          -- MVP small-sided (includes the goalkeeper)
+GameConfig.PlayersPerTeam = 6          -- full 6v6 (includes the goalkeeper); 1-6 all work
 GameConfig.MaxPlayersPerTeam = 6
 GameConfig.FillWithBots = true         -- bots fill the empty slots on both teams
 GameConfig.CountdownSeconds = 3        -- 3-2-1-GO before kickoff
@@ -23,10 +23,13 @@ GameConfig.GoalCelebrationSeconds = 3
 GameConfig.MatchEndScoreboardSeconds = 8
 
 -- ---- Pitch geometry (STUDS) -----------------------------------------------
--- Length runs N-S (Z), Width runs E-W (X). Generous so it reads as a real pitch.
+-- Length runs N-S (Z), Width runs E-W (X). FIFA-proportioned (105m x 68m is
+-- ~1.54:1) and sized for 6v6 spacing. EVERYTHING derives from these two numbers
+-- (markings, AI formation spots, boxes, circle), so rescaling the pitch really
+-- is a one-line change — push Length toward 300 for full character-scale FIFA.
 local Field = {
-	Length = 160,            -- north-south extent (along Z)
-	Width = 100,             -- east-west extent (along X)
+	Length = 240,            -- north-south extent (along Z)
+	Width = 150,             -- east-west extent (along X)
 	CenterX = 0,
 	CenterZ = 0,
 	GroundY = 0,             -- top surface of the pitch floor
@@ -41,8 +44,8 @@ GameConfig.Field = Field
 
 -- Goals sit on the short (N/S) ends, centred on X. Mouth spans X.
 GameConfig.Goal = {
-	Width = 18,        -- mouth width along X (smaller = harder to score)
-	Height = 6,
+	Width = 20,        -- mouth width along X (smaller = harder to score)
+	Height = 7,        -- with the crossbar near real 7.32m x 2.44m proportions
 	Depth = 6,         -- how far the net box extends behind the line
 	PostThickness = 1,
 }
@@ -69,8 +72,9 @@ GameConfig.Dribble = {
 
 -- ---- Kicking (scaled for the larger pitch; TUNE in playtest) ---------------
 GameConfig.Kick = {
-	PassSpeed = 95,          -- studs/s for a ground pass
+	PassSpeed = 105,         -- studs/s for a ground pass
 	PassArc = 0.10,
+	PassMaxRange = 110,      -- furthest teammate considered for a pass (long balls)
 	ShotSpeedMin = 110,      -- studs/s at no charge
 	ShotSpeedMax = 200,      -- studs/s at full charge
 	ShotArc = 0.18,
@@ -115,7 +119,7 @@ GameConfig.Player = {
 }
 
 GameConfig.Stamina = {
-	Max = 100,
+	Max = 120,               -- a little deeper tank for the bigger pitch
 	RegenPerSecond = 18,
 	DrainPerSecond = 22,
 	ShootCost = 8,

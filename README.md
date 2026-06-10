@@ -16,10 +16,11 @@ but is rebuilt natively on Roblox (Luau + Rojo) using Roblox's free built-ins
 
 ## MVP scope (Phase 1)
 
-A 3v3 / 4v4 match vs bots: move, sprint, pass, charge-and-shoot, tackle, a simple
-goalkeeper, a scoreboard + timer + win condition, and mobile-friendly controls.
-See `docs/00_CONVERSION_PLAN.md` for the full phased plan and the Hytopia→Roblox
-system mapping.
+A 6v6 match vs bots on a FIFA-proportioned pitch (squad size is one config dial,
+1v1–6v6): move, sprint, pass, charge-and-shoot, tackle, the **Nutmeg** skill move,
+animated bots, a goalkeeper that actually saves, a scoreboard + timer + win
+condition, and mobile-friendly controls. See `docs/00_CONVERSION_PLAN.md` for the
+full phased plan and the Hytopia→Roblox system mapping.
 
 ## Architecture
 

@@ -1,10 +1,11 @@
 --!strict
 -- Roles
 -- The six soccer positions + AI behaviour constants (ported from the original
--- AIRoleDefinitions.ts). With the NORTH-SOUTH pitch, `offsetLong` is the distance
--- from the team's OWN goal line toward the opponent (along the length, Z) and
--- `laneCross` is the lane across the width (X, relative to centre). Values are
--- scaled to the 160 x 100 pitch. Pursuit/discipline are ported and drive AIService.
+-- AIRoleDefinitions.ts). With the NORTH-SOUTH pitch, `offsetLongFrac` is the
+-- FRACTION of the pitch length from the team's OWN goal line toward the opponent
+-- (along Z) and `laneCrossFrac` is the FRACTION of the pitch width across the
+-- lane (X, relative to centre) — so the formation keeps true FIFA spacing at ANY
+-- Field size in GameConfig. Pursuit/discipline are ported and drive AIService.
 
 export type RoleKey =
 	"goalkeeper"
@@ -14,15 +15,17 @@ export type RoleKey =
 	| "central-midfielder-2"
 	| "striker"
 
+local GameConfig = require(script.Parent:WaitForChild("GameConfig"))
+
 export type RoleDef = {
 	key: RoleKey,
 	name: string,
 	isKeeper: boolean,
-	offsetLong: number,         -- studs from OWN goal line toward the opponent (along length/Z)
-	laneCross: number,          -- lane across the width (X), relative to centre
+	offsetLongFrac: number,     -- fraction of pitch LENGTH from OWN goal line toward the opponent
+	laneCrossFrac: number,      -- fraction of pitch WIDTH across the lane, relative to centre
 	defensive: number,          -- 0-10
 	offensive: number,          -- 0-10
-	pursuitDistance: number,
+	pursuitDistance: number,    -- studs (local pressing range; deliberately absolute)
 	pursuitProbability: number,
 	discipline: number,
 }
@@ -32,32 +35,32 @@ local Roles = {}
 local Definitions: { [string]: RoleDef } = {
 	["goalkeeper"] = {
 		key = "goalkeeper", name = "Goalkeeper", isKeeper = true,
-		offsetLong = 6, laneCross = 0, defensive = 10, offensive = 1,
+		offsetLongFrac = 0.035, laneCrossFrac = 0, defensive = 10, offensive = 1,
 		pursuitDistance = 8.0, pursuitProbability = 0.12, discipline = 0.95,
 	},
 	["left-back"] = {
 		key = "left-back", name = "Left Back", isKeeper = false,
-		offsetLong = 24, laneCross = -26, defensive = 8, offensive = 5,
+		offsetLongFrac = 0.15, laneCrossFrac = -0.26, defensive = 8, offensive = 5,
 		pursuitDistance = 16.0, pursuitProbability = 0.28, discipline = 0.82,
 	},
 	["right-back"] = {
 		key = "right-back", name = "Right Back", isKeeper = false,
-		offsetLong = 24, laneCross = 26, defensive = 8, offensive = 5,
+		offsetLongFrac = 0.15, laneCrossFrac = 0.26, defensive = 8, offensive = 5,
 		pursuitDistance = 16.0, pursuitProbability = 0.28, discipline = 0.82,
 	},
 	["central-midfielder-1"] = {
 		key = "central-midfielder-1", name = "Left Central Midfielder", isKeeper = false,
-		offsetLong = 58, laneCross = -15, defensive = 6, offensive = 7,
+		offsetLongFrac = 0.36, laneCrossFrac = -0.15, defensive = 6, offensive = 7,
 		pursuitDistance = 22.0, pursuitProbability = 0.38, discipline = 0.72,
 	},
 	["central-midfielder-2"] = {
 		key = "central-midfielder-2", name = "Right Central Midfielder", isKeeper = false,
-		offsetLong = 58, laneCross = 15, defensive = 6, offensive = 7,
+		offsetLongFrac = 0.36, laneCrossFrac = 0.15, defensive = 6, offensive = 7,
 		pursuitDistance = 22.0, pursuitProbability = 0.38, discipline = 0.72,
 	},
 	["striker"] = {
 		key = "striker", name = "Striker", isKeeper = false,
-		offsetLong = 74, laneCross = 0, defensive = 3, offensive = 10,
+		offsetLongFrac = 0.46, laneCrossFrac = 0, defensive = 3, offensive = 10,
 		pursuitDistance = 26.0, pursuitProbability = 0.42, discipline = 0.62,
 	},
 }
@@ -94,9 +97,15 @@ end
 
 -- Home position on the north-south pitch: along the length (Z) from the team's own
 -- goal line toward the opponent, in a lane across the width (X). attackDir is +1 if
--- the team attacks toward +Z, -1 toward -Z.
+-- the team attacks toward +Z, -1 toward -Z. Fractions x the live Field size keep
+-- the same formation shape on any pitch.
 function Roles.homePosition(def: RoleDef, ownGoalZ: number, attackDir: number, centerX: number, y: number): Vector3
-	return Vector3.new(centerX + def.laneCross, y, ownGoalZ + attackDir * def.offsetLong)
+	local FIELD = GameConfig.Field
+	return Vector3.new(
+		centerX + def.laneCrossFrac * FIELD.Width,
+		y,
+		ownGoalZ + attackDir * def.offsetLongFrac * FIELD.Length
+	)
 end
 
 return Roles
