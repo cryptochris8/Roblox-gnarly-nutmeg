@@ -32,6 +32,7 @@ local GOAL = GameConfig.Goal
 local DRIB = GameConfig.Dribble
 local NUTMEG = GameConfig.Nutmeg
 local VFX = GameConfig.Vfx
+local RESTART = GameConfig.Restart
 
 local TAG = "Footballer"
 
@@ -51,6 +52,8 @@ local BallService = {}
 BallService.onGoal = nil :: (((scoreTeam: string) -> ())?)
 -- Set by Main: BallService.onNutmeg(byModel, victimModel) -- a successful meg
 BallService.onNutmeg = nil :: (((byModel: Model, victimModel: Model) -> ())?)
+-- Set by Main: BallService.onRestart(kind, team) -- "Throw-in"/"Corner kick"/"Goal kick"
+BallService.onRestart = nil :: (((kind: string, team: string) -> ())?)
 
 local ball: Part? = nil
 local shotTrail: Trail? = nil
@@ -61,6 +64,13 @@ local lastCarrierTeam: string? = nil
 local enabled = false
 local ignorePickupUntil = 0
 local lastKicker: Model? = nil
+-- dead-ball restart state (throw-ins / corners / goal kicks)
+local restartActive = false
+local restartToken = 0
+local exclusiveTeam: string? = nil
+local exclusiveUntil = 0
+-- the teammate a pass was aimed at (gets a reception-assist pickup bonus)
+local expectedReceiver: Model? = nil
 local ballSpawn = Vector3.new(0, 3, 0)
 local goals: { WorldService.GoalBox } = {}
 local possessionEvent: RemoteEvent
@@ -123,6 +133,7 @@ local function setPossession(model: Model?)
 		lastCarrierUserId = uid
 		lastCarrierTeam = (model:GetAttribute("Team") :: string?) or lastCarrierTeam
 		lastKicker = nil -- someone has the ball; clear the post-kick exclusion
+		expectedReceiver = nil -- the pass (if any) has been received
 	end
 	-- The ball is ALWAYS a real physics body now (rolls/bounces); possession just
 	-- decides whether carry() steers it. Keep it server-owned for authority.
@@ -167,29 +178,64 @@ function BallService.carrierIsPlayer(player: Player): boolean
 	return carrier ~= nil and player.Character == carrier
 end
 
--- ---- best-teammate heuristic (ported intent from _findBestPassTarget) ------
+-- ---- best-teammate heuristic (FIFA-style assisted passing) ------------------
+-- A pass picks a PLAYER, not a direction: score teammates by forward progress,
+-- how open they are, and (for humans) how close they are to where the passer is
+-- FACING, so you aim a pass by looking at its target.
 
-local function bestTeammate(fromModel: Model, team: string, ballPos: Vector3): Footballer?
+local function bestTeammate(fromModel: Model, team: string, ballPos: Vector3, useFacing: boolean): Footballer?
 	local goal = TeamService.targetGoalCenter(team)
 	local toGoal = Vector3.new(goal.X - ballPos.X, 0, goal.Z - ballPos.Z)
 	toGoal = toGoal.Magnitude > 0.1 and toGoal.Unit or Vector3.new(1, 0, 0)
 
+	local facing: Vector3? = nil
+	if useFacing then
+		local root = fromModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local f = root.CFrame.LookVector
+			f = Vector3.new(f.X, 0, f.Z)
+			facing = f.Magnitude > 0.1 and f.Unit or nil
+		end
+	end
+
+	local mates: { Footballer } = {}
+	local opps: { Footballer } = {}
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.model == fromModel then
+			-- self
+		elseif f.team == team then
+			mates[#mates + 1] = f
+		else
+			opps[#opps + 1] = f
+		end
+	end
+
 	local best: Footballer? = nil
 	local bestScore = -math.huge
-	for _, f in ipairs(BallService.listFootballers()) do
-		if f.team == team and f.model ~= fromModel then
-			local rel = Vector3.new(f.root.Position.X - ballPos.X, 0, f.root.Position.Z - ballPos.Z)
-			local dist = rel.Magnitude
-			if dist >= 6 and dist <= KICK.PassMaxRange then
-				local forward = (dist > 0) and toGoal:Dot(rel.Unit) or 0 -- -1..1
-				local score = forward * 30 - dist * 0.25
-				if not f.isBot then
-					score += 8 -- gently prefer passing to humans
+	for _, f in ipairs(mates) do
+		local rel = Vector3.new(f.root.Position.X - ballPos.X, 0, f.root.Position.Z - ballPos.Z)
+		local dist = rel.Magnitude
+		if dist >= 6 and dist <= KICK.PassMaxRange then
+			local dir = rel.Unit
+			local score = toGoal:Dot(dir) * 18 - dist * 0.22
+			if facing then
+				score += facing:Dot(dir) * 26 -- the pass goes where you're looking
+			end
+			-- openness: how far the nearest opponent is from the receiver
+			local nearestOpp = math.huge
+			for _, o in ipairs(opps) do
+				local od = Vector3.new(o.root.Position.X - f.root.Position.X, 0, o.root.Position.Z - f.root.Position.Z).Magnitude
+				if od < nearestOpp then
+					nearestOpp = od
 				end
-				if score > bestScore then
-					bestScore = score
-					best = f
-				end
+			end
+			score += math.min(nearestOpp, 14) * 0.9
+			if not f.isBot then
+				score += 6 -- gently prefer passing to humans
+			end
+			if score > bestScore then
+				bestScore = score
+				best = f
 			end
 		end
 	end
@@ -198,21 +244,34 @@ end
 
 -- ---- actions (pure mechanics; stamina/cooldown gating happens at the caller) -
 
--- Pass to the best teammate (or clear toward goal if none). Returns true if kicked.
+-- Pass to the best teammate (or clear toward goal if none). Power scales with
+-- distance, the ball is led to where the receiver WILL be, and the receiver
+-- gets a reception-assist pickup bonus so passes stick. Returns true if kicked.
 function BallService.passFrom(fromModel: Model): boolean
 	if carrier ~= fromModel or not ball then
 		return false
 	end
 	local team = (fromModel:GetAttribute("Team") :: string?) or ""
 	local ballPos = ball.Position
-	local target = bestTeammate(fromModel, team, ballPos)
+	local useFacing = fromModel:GetAttribute("IsBot") ~= true
+	local target = bestTeammate(fromModel, team, ballPos, useFacing)
 
 	local dir: Vector3
+	local speed: number
+	local receiver: Model? = nil
 	if target then
-		local lead = target.root.Position + target.root.AssemblyLinearVelocity * KICK.PassLeadFactor
+		local rel = Vector3.new(target.root.Position.X - ballPos.X, 0, target.root.Position.Z - ballPos.Z)
+		local dist = rel.Magnitude
+		speed = math.clamp(dist * 1.3, KICK.PassSpeedMin, KICK.PassSpeedMax)
+		-- physically-correct lead: aim where the receiver will be on arrival
+		local t = dist / speed
+		local vel = target.root.AssemblyLinearVelocity
+		local lead = target.root.Position + Vector3.new(vel.X, 0, vel.Z) * (t * KICK.PassLeadDamping)
 		dir = lead - ballPos
+		receiver = target.model
 	else
 		dir = TeamService.targetGoalCenter(team) - ballPos
+		speed = KICK.PassSpeedMax * 0.85
 	end
 	dir = Vector3.new(dir.X, 0, dir.Z)
 	if dir.Magnitude < 0.1 then
@@ -221,16 +280,21 @@ function BallService.passFrom(fromModel: Model): boolean
 		dir = Vector3.new(dir.X, 0, dir.Z)
 	end
 	local horiz = dir.Unit
-	local v = horiz * KICK.PassSpeed + Vector3.yAxis * (KICK.PassSpeed * KICK.PassArc)
+	local v = horiz * speed + Vector3.yAxis * (speed * KICK.PassArc)
 
 	setPossession(nil)
 	lastKicker = fromModel
+	expectedReceiver = receiver
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	return true
 end
 
--- Shoot, charge 0..1, biased toward the goal. Returns true if kicked.
+-- Shoot, charge 0..1, with FIFA-style placement: the shot aims where your
+-- FACING ray crosses the goal line (clamped inside the posts, lightly assisted
+-- toward the frame), distance shapes the strike (close = finesse with extra
+-- loft, long = driven and flatter), and OVERCHARGING past the sweet spot
+-- balloons it. Returns true if kicked.
 function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: number?): boolean
 	if carrier ~= fromModel or not ball then
 		return false
@@ -244,25 +308,50 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 
 	local facing = root.CFrame.LookVector
 	facing = Vector3.new(facing.X, 0, facing.Z)
-	facing = facing.Magnitude > 0.1 and facing.Unit or Vector3.new(1, 0, 0)
+	facing = facing.Magnitude > 0.1 and facing.Unit or Vector3.new(0, 0, 1)
 
 	local goal = TeamService.targetGoalCenter(team)
-	local toGoal = Vector3.new(goal.X - ball.Position.X, 0, goal.Z - ball.Position.Z)
-	toGoal = toGoal.Magnitude > 0.1 and toGoal.Unit or facing
-
-	local dir = (facing * 0.6 + toGoal * 0.4)
+	-- placement: where the facing ray meets the goal line decides the corner
+	local halfMouth = math.max(1, GOAL.Width / 2 - GOAL.PostThickness)
+	local aimX = goal.X
+	local dz = goal.Z - ball.Position.Z
+	if math.abs(facing.Z) > 0.05 and (dz / facing.Z) > 0 then
+		aimX = ball.Position.X + facing.X * (dz / facing.Z)
+	end
+	aimX = math.clamp(aimX, goal.X - halfMouth, goal.X + halfMouth)
+	aimX = aimX * 0.85 + goal.X * 0.15 -- light assist toward the frame
+	local dir = Vector3.new(aimX - ball.Position.X, 0, goal.Z - ball.Position.Z)
 	dir = dir.Magnitude > 0.1 and dir.Unit or facing
-	-- optional inaccuracy so finishes aren't automatic
-	if spreadDeg and spreadDeg > 0 then
-		local a = (math.random() - 0.5) * 2 * math.rad(spreadDeg)
+
+	-- distance shaping (ported intent from the Hytopia original)
+	local distToGoal = Vector3.new(goal.X - ball.Position.X, 0, goal.Z - ball.Position.Z).Magnitude
+	local power = KICK.ShotSpeedMin + (KICK.ShotSpeedMax - KICK.ShotSpeedMin) * charge
+	local arc = KICK.ShotArc
+	if distToGoal < 20 then
+		power *= 1.1 -- close-range finesse pops
+		arc *= 1.25
+	elseif distToGoal > 70 then
+		power *= 0.9 -- long efforts stay controlled
+		arc *= 0.7
+	end
+	-- overcharge: past the sweet spot the shot balloons (watch the meter!)
+	local extraSpread = 0
+	if charge > 0.85 then
+		local over = (charge - 0.85) / 0.15
+		arc *= 1 + 0.8 * over
+		extraSpread = 6 * over
+	end
+	local totalSpread = (spreadDeg or 0) + extraSpread
+	if totalSpread > 0 then
+		local a = (math.random() - 0.5) * 2 * math.rad(totalSpread)
 		dir = (CFrame.fromAxisAngle(Vector3.yAxis, a) * dir)
 	end
 
-	local power = KICK.ShotSpeedMin + (KICK.ShotSpeedMax - KICK.ShotSpeedMin) * charge
-	local v = dir * power + Vector3.yAxis * (power * KICK.ShotArc)
+	local v = dir * power + Vector3.yAxis * (power * arc)
 
 	setPossession(nil)
 	lastKicker = fromModel
+	expectedReceiver = nil
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	return true
@@ -302,6 +391,7 @@ function BallService.nutmegFrom(fromModel: Model): boolean
 
 	setPossession(nil)
 	lastKicker = fromModel
+	expectedReceiver = nil
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	if victim then
 		local v = victim :: Footballer
@@ -418,9 +508,15 @@ local function spawnBall()
 end
 
 function BallService.placeAtCenter()
+	restartToken += 1 -- cancel any pending dead-ball release
+	restartActive = false
+	exclusiveTeam = nil
+	exclusiveUntil = 0
+	expectedReceiver = nil
 	setPossession(nil)
 	lastKicker = nil
 	if ball then
+		ball.Anchored = false
 		ball.AssemblyLinearVelocity = Vector3.zero
 		ball.AssemblyAngularVelocity = Vector3.zero
 		ball.CFrame = CFrame.new(ballSpawn)
@@ -436,7 +532,116 @@ end
 
 function BallService.stop()
 	enabled = false
+	restartToken += 1
+	restartActive = false
+	exclusiveTeam = nil
+	exclusiveUntil = 0
+	expectedReceiver = nil
+	if ball then
+		ball.Anchored = false
+	end
 	setPossession(nil)
+end
+
+-- ---- dead-ball restarts (throw-ins / corners / goal kicks) -------------------
+
+-- While a restart is pending (or its exclusive window runs), only this team may
+-- take the ball. AI uses it to hold shape instead of crowding the spot.
+function BallService.getRestrictedTeam(): string?
+	if restartActive then
+		return exclusiveTeam
+	end
+	if exclusiveTeam and os.clock() < exclusiveUntil then
+		return exclusiveTeam
+	end
+	return nil
+end
+
+local function beginRestart(kind: string, team: string, spot: Vector3)
+	restartActive = true
+	restartToken += 1
+	local token = restartToken
+	setPossession(nil)
+	lastKicker = nil
+	expectedReceiver = nil
+	exclusiveTeam = team
+	if ball then
+		ball.AssemblyLinearVelocity = Vector3.zero
+		ball.AssemblyAngularVelocity = Vector3.zero
+		ball.CFrame = CFrame.new(spot)
+		ball.Anchored = true -- held on the spot until the whistle releases it
+	end
+	local cb = BallService.onRestart
+	if cb then
+		task.spawn(cb, kind, team)
+	end
+	task.delay(RESTART.FreezeSeconds, function()
+		if restartToken ~= token then
+			return -- a kickoff/stop superseded this restart
+		end
+		restartActive = false
+		exclusiveUntil = os.clock() + RESTART.ExclusiveSeconds
+		if ball then
+			ball.Anchored = false
+		end
+	end)
+end
+
+-- FIFA rules: over the touchline = throw-in to the other team; over the goal
+-- line outside the goal = corner (if the defenders touched it last) or goal kick.
+local function checkOutOfBounds()
+	if not ball or not enabled or restartActive then
+		return
+	end
+	local p = ball.Position
+	local rOut = BALL.Diameter / 2 + 0.1 -- the WHOLE ball must cross the line
+	local outX = (p.X < FIELD.MinX - rOut and -1) or (p.X > FIELD.MaxX + rOut and 1) or nil
+	local outZ = (p.Z < FIELD.MinZ - rOut and -1) or (p.Z > FIELD.MaxZ + rOut and 1) or nil
+	if not outX and not outZ then
+		return
+	end
+	-- a ball in/above the net region is checkGoal's business, never a corner
+	if outZ then
+		for _, box in ipairs(goals) do
+			if p.X >= box.xMin and p.X <= box.xMax and p.Z >= box.zMin and p.Z <= box.zMax and p.Y <= box.yMax then
+				return
+			end
+		end
+	end
+	local y = FIELD.GroundY + BALL.Diameter / 2
+	local lt = lastTouchTeam
+
+	if outX then
+		local awarded: string
+		if lt and TeamService.info(lt) then
+			awarded = TeamService.info(lt).opponent
+		else
+			awarded = TeamService.Names[math.random(1, #TeamService.Names)]
+		end
+		local sideX = (outX == 1) and (FIELD.MaxX - 1.5) or (FIELD.MinX + 1.5)
+		local spot = Vector3.new(sideX, y, math.clamp(p.Z, FIELD.MinZ + 4, FIELD.MaxZ - 4))
+		beginRestart("Throw-in", awarded, spot)
+		return
+	end
+
+	local endZ = (outZ == 1) and FIELD.MaxZ or FIELD.MinZ
+	local defender = TeamService.Names[1]
+	for _, name in ipairs(TeamService.Names) do
+		if math.abs(TeamService.info(name).ownGoalZ - endZ) < 1 then
+			defender = name
+		end
+	end
+	local attacker = TeamService.info(defender).opponent
+	if lt == defender then
+		-- corner for the attack, at the corner flag nearest where it went out
+		local sx = (p.X >= FIELD.CenterX) and 1 or -1
+		local spot = Vector3.new(FIELD.CenterX + sx * (FIELD.Width / 2 - 2), y, endZ - (outZ :: number) * 2)
+		beginRestart("Corner kick", attacker, spot)
+	else
+		-- goal kick from the front of the goal box
+		local spot = Vector3.new(FIELD.CenterX, y, endZ - (outZ :: number) * (FIELD.Length * 0.052 + 2))
+		beginRestart("Goal kick", defender, spot)
+	end
 end
 
 -- ---- per-frame -------------------------------------------------------------
@@ -482,20 +687,27 @@ local function carry()
 end
 
 local function tryPickup()
-	if not ball or carrier or not enabled then
+	if not ball or carrier or not enabled or restartActive then
 		return
 	end
 	local graceActive = os.clock() < ignorePickupUntil
+	-- after a dead ball, only the awarded team may take it for a short window
+	local restricted = (os.clock() < exclusiveUntil) and exclusiveTeam or nil
 	local bp = ball.Position
 	local nearest: Footballer? = nil
 	local nd = math.huge
 	for _, f in ipairs(BallService.listFootballers()) do
 		-- only the player who just kicked is briefly blocked from re-grabbing;
 		-- everyone else (esp. the keeper) can claim the ball immediately
-		if not (graceActive and f.model == lastKicker) and not isStunnedModel(f.model) then
+		if restricted and f.team ~= restricted then
+			-- the other team waits out the dead-ball award
+		elseif not (graceActive and f.model == lastKicker) and not isStunnedModel(f.model) then
 			local isKeeper = f.role == "goalkeeper"
 			-- keepers reach further and can claim airborne shots up to the crossbar
 			local reach = isKeeper and BALL.KeeperReach or BALL.PickupRadius
+			if expectedReceiver == f.model then
+				reach *= KICK.ReceptionAssist -- the pass sticks to its target
+			end
 			local maxY = FIELD.GroundY + (isKeeper and (GOAL.Height + 1) or 5)
 			if bp.Y <= maxY then
 				local d = Vector3.new(f.root.Position.X - bp.X, 0, f.root.Position.Z - bp.Z).Magnitude
@@ -547,7 +759,7 @@ local function checkSafety()
 	end
 	local p = ball.Position
 	local m = p.Magnitude
-	local margin = 8
+	local margin = FIELD.Runoff + 8 -- the apron is legal ground for dead balls
 	if m ~= m
 		or p.Y < FIELD.GroundY - 30 or p.Y > 150
 		or p.X < FIELD.MinX - margin or p.X > FIELD.MaxX + margin
@@ -565,11 +777,12 @@ function BallService.init(world: WorldService.World)
 	RunService.Heartbeat:Connect(function(dt)
 		if carrier then
 			carry()
-		else
+		elseif not restartActive then
 			tryPickup()
 			applyLooseDrag(dt)
 		end
 		checkGoal()
+		checkOutOfBounds()
 		checkSafety()
 		local trail = shotTrail
 		if trail and ball then

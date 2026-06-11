@@ -161,6 +161,16 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 	return bot
 end
 
+-- Bot pass with a short follow-through "plant" so passes read like kicks, not
+-- teleports (the Hytopia original used a 300ms stop-and-plant).
+local function botPass(model: Model): boolean
+	if BallService.passFrom(model) then
+		model:SetAttribute("PlantUntil", os.clock() + 0.3)
+		return true
+	end
+	return false
+end
+
 -- Closest OUTFIELD teammate to the ball (keepers excluded; they have their own job).
 local function closestOutfieldToBall(team: string, ballPos: Vector3): Model?
 	local best: Model? = nil
@@ -190,6 +200,10 @@ local function decideBot(entry: BotEntry)
 		hum:Move(Vector3.zero)
 		return
 	end
+	if ((model:GetAttribute("PlantUntil") :: number?) or 0) > os.clock() then
+		hum:Move(Vector3.zero) -- follow-through after a pass
+		return
+	end
 
 	local team = entry.team
 	local role = entry.role
@@ -205,7 +219,7 @@ local function decideBot(entry: BotEntry)
 	-- GOALKEEPER
 	if role == GameConfig.GoalkeeperRole then
 		if carrier == model then
-			BallService.passFrom(model) -- clear it upfield
+			botPass(model) -- clear it upfield
 			return
 		end
 		local halfMouth = GameConfig.Goal.Width / 2
@@ -226,9 +240,16 @@ local function decideBot(entry: BotEntry)
 
 	-- I HAVE THE BALL
 	if carrier == model then
+		-- corner-kick / byline flavour: from deep and wide, cross it into the box
+		local nearByline = math.abs(myPos.Z - targetGoal.Z) < 14
+			and math.abs(myPos.X - GameConfig.Field.CenterX) > GameConfig.Field.Width / 2 - 16
+		if nearByline and botPass(model) then
+			return
+		end
 		local dGoal = hdist(myPos, targetGoal)
 		if dGoal < SHOOT_RANGE then
-			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 1), 7)
+			-- cap at the sweet spot: bots don't balloon overcharged shots
+			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), 7)
 			return
 		end
 		local pressured = false
@@ -243,7 +264,7 @@ local function decideBot(entry: BotEntry)
 			if math.random() < 0.2 and BallService.nutmegFrom(model) then
 				return
 			end
-			if math.random() < 0.7 and BallService.passFrom(model) then
+			if math.random() < 0.7 and botPass(model) then
 				return
 			end
 		end
@@ -271,7 +292,18 @@ local function decideBot(entry: BotEntry)
 
 	-- LOOSE BALL
 	if BallService.isLoose() then
+		local restricted = BallService.getRestrictedTeam()
+		if restricted and restricted ~= team then
+			-- dead ball awarded against us: hold shape instead of mobbing the spot
+			hum:MoveTo(Vector3.new(home.X, myPos.Y, (home.Z + ownGoal.Z) / 2))
+			return
+		end
 		if amClosest and hdist(myPos, ballPos) < def.pursuitDistance + 10 then
+			hum:MoveTo(Vector3.new(ballPos.X, myPos.Y, ballPos.Z))
+			return
+		end
+		if restricted == team and amClosest then
+			-- our restart: the nearest bot walks over and takes it from anywhere
 			hum:MoveTo(Vector3.new(ballPos.X, myPos.Y, ballPos.Z))
 			return
 		end

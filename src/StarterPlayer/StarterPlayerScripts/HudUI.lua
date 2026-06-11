@@ -264,7 +264,11 @@ function HudUI.updateMatch(snap)
 	local phase = snap.phase or "Waiting"
 	local text = PHASE_TEXT[phase] or phase
 	if phase == "Playing" then
-		text = (snap.half == 2) and "2nd Half" or "1st Half"
+		if snap.half == 3 then
+			text = "⚡ GOLDEN GOAL"
+		else
+			text = (snap.half == 2) and "2nd Half" or "1st Half"
+		end
 	end
 	phaseLabel.Text = text
 	timerLabel.Text = fmtClock(snap.timeLeft or 0)
@@ -301,6 +305,9 @@ function HudUI.goal(info)
 	local team = info and info.team or ""
 	goalFrame.BackgroundColor3 = (team == "Red") and C.Red or C.Blue
 	goalLabel.Text = string.upper(team) .. " GOAL!"
+	if info and info.scorer then
+		HudUI.toast("⚽ " .. tostring(info.scorer) .. " scores!")
+	end
 	goalLabel.Visible = true
 	goalFrame.BackgroundTransparency = 0.45
 	TweenService:Create(goalFrame, TweenInfo.new(0.3), { BackgroundTransparency = 0.7 }):Play()
@@ -348,6 +355,8 @@ function HudUI.setCharge(frac)
 	else
 		chargeHolder.Visible = true
 		chargeFill.Size = UDim2.new(frac, 0, 1, 0)
+		-- past the sweet spot the shot balloons — warn with a red meter
+		chargeFill.BackgroundColor3 = (frac > 0.85) and Color3.fromRGB(235, 80, 60) or C.Charge
 	end
 end
 

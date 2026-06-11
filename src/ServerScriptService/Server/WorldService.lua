@@ -31,8 +31,9 @@ export type World = {
 	goals: { GoalBox },
 }
 
-local LENGTH = FIELD.Length -- along Z (north-south)
-local WIDTH = FIELD.Width   -- along X
+local LENGTH = FIELD.Length -- along Z (north-south), line to line
+local WIDTH = FIELD.Width   -- along X, line to line
+local RUNOFF = FIELD.Runoff -- grass apron beyond the lines
 local CX = FIELD.CenterX
 local CZ = FIELD.CenterZ
 
@@ -143,13 +144,13 @@ local function buildMarkings(parent: Instance)
 		local gboxDepth = LENGTH * 0.052 -- 5.5m deep
 		local spotDist = LENGTH * 0.105  -- penalty spot: 11m out
 		local circleR = WIDTH * 0.135    -- centre circle: 9.15m radius
-		-- perimeter (inset 1 stud from the boundary)
-		lineAlongZ(MinX + 1, MinZ + 1, MaxZ - 1, parent)
-		lineAlongZ(MaxX - 1, MinZ + 1, MaxZ - 1, parent)
-		lineAlongX(MinZ + 1, MinX + 1, MaxX - 1, parent)
-		lineAlongX(MaxZ - 1, MinX + 1, MaxX - 1, parent)
+		-- perimeter at the EXACT legal bounds (the apron lies beyond the lines)
+		lineAlongZ(MinX, MinZ, MaxZ, parent)
+		lineAlongZ(MaxX, MinZ, MaxZ, parent)
+		lineAlongX(MinZ, MinX, MaxX, parent)
+		lineAlongX(MaxZ, MinX, MaxX, parent)
 		-- halfway line + centre circle + spot
-		lineAlongX(CZ, MinX + 1, MaxX - 1, parent)
+		lineAlongX(CZ, MinX, MaxX, parent)
 		circleRing(CX, CZ, circleR, parent)
 		spot(CX, CZ, parent)
 		-- penalty + goal boxes at each end
@@ -173,19 +174,20 @@ local function buildStands(parent: Instance)
 		local tiers = 6
 		local tierH = 4
 		local tierD = 5
+		local standBase = RUNOFF + WALL_T -- stands begin past the apron + wall
 		local grey = Color3.fromRGB(95, 100, 115)
 		local blue = Color3.fromRGB(50, 80, 170)
 		local red = Color3.fromRGB(175, 55, 55)
 		local function stand(axis: string, sign: number, color: Color3)
 			for i = 0, tiers - 1 do
 				local y = FIELD.GroundY + tierH / 2 + i * (tierH * 0.85)
-				local outOff = WALL_T + tierD / 2 + i * tierD
+				local outOff = standBase + tierD / 2 + i * tierD
 				if axis == "x" then
 					local x = (sign > 0 and FIELD.MaxX or FIELD.MinX) + sign * outOff
-					block("Stand", Vector3.new(tierD, tierH, LENGTH + 2 * (WALL_T + tiers * tierD)), CFrame.new(x, y, CZ), color, parent)
+					block("Stand", Vector3.new(tierD, tierH, LENGTH + 2 * (standBase + tiers * tierD)), CFrame.new(x, y, CZ), color, parent)
 				else
 					local z = (sign > 0 and FIELD.MaxZ or FIELD.MinZ) + sign * outOff
-					block("Stand", Vector3.new(WIDTH + 2 * (WALL_T + tiers * tierD), tierH, tierD), CFrame.new(CX, y, z), color, parent)
+					block("Stand", Vector3.new(WIDTH + 2 * (standBase + tiers * tierD), tierH, tierD), CFrame.new(CX, y, z), color, parent)
 				end
 			end
 		end
@@ -196,7 +198,7 @@ local function buildStands(parent: Instance)
 
 		-- floodlight pylons at the four corners
 		local pylonH = 64
-		local cornerOut = WALL_T + tiers * tierD + 8
+		local cornerOut = RUNOFF + WALL_T + tiers * tierD + 8
 		local function pylon(px: number, pz: number)
 			block("FloodPole", Vector3.new(2.5, pylonH, 2.5), CFrame.new(px, FIELD.GroundY + pylonH / 2, pz), Color3.fromRGB(55, 60, 70), parent)
 			local lamp = block("FloodLamp", Vector3.new(11, 4, 5), CFrame.new(px, FIELD.GroundY + pylonH, pz), Color3.fromRGB(255, 250, 235), parent)
@@ -219,8 +221,96 @@ local function buildStands(parent: Instance)
 	end)
 end
 
+local function buildCornerFlags(parent: Instance)
+	pcall(function()
+		for _, sx in ipairs({ -1, 1 }) do
+			for _, sz in ipairs({ -1, 1 }) do
+				local x = CX + sx * WIDTH / 2
+				local z = CZ + sz * LENGTH / 2
+				local pole = block("CornerFlagPole", Vector3.new(0.35, 5, 0.35), CFrame.new(x, FIELD.GroundY + 2.5, z), Color3.fromRGB(250, 220, 60), parent)
+				pole.CanCollide = false
+				pole.Material = Enum.Material.SmoothPlastic
+				local flag = block("CornerFlag", Vector3.new(1.8, 1.1, 0.12), CFrame.new(x - sx * 0.9, FIELD.GroundY + 4.6, z), Color3.fromRGB(235, 90, 40), parent)
+				flag.CanCollide = false
+				flag.Material = Enum.Material.SmoothPlastic
+			end
+		end
+	end)
+end
+
+-- Pitch-side advertising hoardings in the runoff (low boards facing the pitch).
+local function buildHoardings(parent: Instance)
+	pcall(function()
+		local texts = { "GNARLY NUTMEG", "ATHLETE DOMAINS", "WORLD CUP 2026", "⚽ NUTMEG!" }
+		local navy = Color3.fromRGB(18, 24, 48)
+		local boardH = 1.6
+		local function board(pos: Vector3, faceToward: Vector3, segLen: number, textIndex: number)
+			local b = block("AdBoard", Vector3.new(segLen, boardH, 0.5), CFrame.lookAt(pos, faceToward), navy, parent)
+			b.Material = Enum.Material.SmoothPlastic
+			local gui = Instance.new("SurfaceGui")
+			gui.Face = Enum.NormalId.Front
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			gui.PixelsPerStud = 28
+			gui.Parent = b
+			local label = Instance.new("TextLabel")
+			label.BackgroundTransparency = 1
+			label.Size = UDim2.new(1, 0, 1, 0)
+			label.Font = Enum.Font.GothamBlack
+			label.TextScaled = true
+			label.TextColor3 = Color3.fromRGB(255, 255, 255)
+			label.Text = texts[(textIndex - 1) % #texts + 1]
+			label.Parent = gui
+		end
+		local segLen = 26
+		local gap = 3
+		local inset = 5 -- boards sit this far into the runoff, past the line
+		local n = 0
+		-- along both touchlines
+		local count = math.floor((LENGTH - 10) / (segLen + gap))
+		for _, sx in ipairs({ -1, 1 }) do
+			local x = CX + sx * (WIDTH / 2 + inset)
+			for i = 1, count do
+				local z = CZ - ((count - 1) / 2) * (segLen + gap) + (i - 1) * (segLen + gap)
+				n += 1
+				board(Vector3.new(x, FIELD.GroundY + boardH / 2, z), Vector3.new(CX, FIELD.GroundY + boardH / 2, z), segLen, n)
+			end
+		end
+		-- behind both goal lines (leave the goal mouth area open)
+		local endCount = math.floor((WIDTH - GOAL.Width - 20) / 2 / (segLen + gap))
+		for _, sz in ipairs({ -1, 1 }) do
+			local z = CZ + sz * (LENGTH / 2 + inset)
+			for _, side in ipairs({ -1, 1 }) do
+				for i = 1, math.max(1, endCount) do
+					local x0 = side * (GOAL.Width / 2 + 12)
+					local x = CX + x0 + side * (i - 1) * (segLen + gap) + side * segLen / 2
+					n += 1
+					board(Vector3.new(x, FIELD.GroundY + boardH / 2, z), Vector3.new(x, FIELD.GroundY + boardH / 2, CZ), segLen, n)
+				end
+			end
+		end
+	end)
+end
+
 local function tuneLighting()
 	pcall(function()
+		-- The template ships a broken/black skybox: with environment lighting on,
+		-- it renders the grass near-black. A FRESH default Sky = the standard
+		-- bright blue Roblox sky, which lights the pitch correctly.
+		for _, inst in ipairs(Lighting:GetChildren()) do
+			if inst:IsA("Sky") or inst:IsA("Atmosphere") then
+				inst:Destroy()
+			end
+		end
+		local sky = Instance.new("Sky")
+		sky.Parent = Lighting
+		local atmo = Instance.new("Atmosphere")
+		atmo.Density = 0.3
+		atmo.Offset = 0.25
+		atmo.Color = Color3.fromRGB(199, 211, 222)
+		atmo.Decay = Color3.fromRGB(106, 112, 125)
+		atmo.Glare = 0.2
+		atmo.Haze = 1.2
+		atmo.Parent = Lighting
 		Lighting.ClockTime = 14
 		Lighting.Brightness = 2.5
 		Lighting.GlobalShadows = true
@@ -234,32 +324,69 @@ function WorldService.build(): World
 		existing:Destroy()
 	end
 
+	-- The template's Baseplate top sits at exactly Y=0 and z-fights our grass
+	-- invisible; its SpawnLocation fights ours. Remove template leftovers.
+	pcall(function()
+		local bp = Workspace:FindFirstChild("Baseplate")
+		if bp then
+			bp:Destroy()
+		end
+		for _, inst in ipairs(Workspace:GetChildren()) do
+			if inst:IsA("SpawnLocation") then
+				inst:Destroy()
+			end
+		end
+	end)
+
 	local pitch = Instance.new("Folder")
 	pitch.Name = "Pitch"
 	pitch.Parent = Workspace
 
-	-- Floor
+	-- Floor: legal pitch + the runoff apron all around
+	-- NOTE: Material.Grass renders near-BLACK at distance in this lighting setup
+	-- (verified in playtest) — SmoothPlastic + two-tone mow stripes reads better
+	-- and is predictable on every device.
 	local floor = block(
 		"Ground",
-		Vector3.new(WIDTH, FIELD.FloorThickness, LENGTH),
+		Vector3.new(WIDTH + 2 * RUNOFF, FIELD.FloorThickness, LENGTH + 2 * RUNOFF),
 		CFrame.new(CX, FIELD.GroundY - FIELD.FloorThickness / 2, CZ),
 		COLOR_GRASS,
 		pitch
 	)
-	floor.Material = Enum.Material.Grass
+	floor.Material = Enum.Material.SmoothPlastic
 
-	-- Boundary walls (closed box; thick so a hard shot can't tunnel through)
+	-- Mowed-grass stripes across the legal pitch (alternating bands, pure looks)
+	pcall(function()
+		local bands = 12
+		local bandLen = LENGTH / bands
+		local light = Color3.fromRGB(74, 164, 82)
+		for i = 0, bands - 1 do
+			if i % 2 == 0 then
+				local z = FIELD.MinZ + (i + 0.5) * bandLen
+				local s = block("GrassStripe", Vector3.new(WIDTH, 0.04, bandLen), CFrame.new(CX, FIELD.GroundY + 0.02, z), light, pitch)
+				s.Material = Enum.Material.SmoothPlastic
+				s.CanCollide = false
+			end
+		end
+	end)
+
+	-- Boundary walls at the APRON edge (closed box; thick so a hard shot can't
+	-- tunnel). Play is whistled dead at the lines well before the ball gets here.
 	local wallY = FIELD.GroundY + FIELD.WallHeight / 2
-	wall("WallXMin", Vector3.new(WALL_T, FIELD.WallHeight, LENGTH + 2 * WALL_T), Vector3.new(FIELD.MinX - WALL_T / 2, wallY, CZ), pitch)
-	wall("WallXMax", Vector3.new(WALL_T, FIELD.WallHeight, LENGTH + 2 * WALL_T), Vector3.new(FIELD.MaxX + WALL_T / 2, wallY, CZ), pitch)
-	wall("WallZMin", Vector3.new(WIDTH + 2 * WALL_T, FIELD.WallHeight, WALL_T), Vector3.new(CX, wallY, FIELD.MinZ - WALL_T / 2), pitch)
-	wall("WallZMax", Vector3.new(WIDTH + 2 * WALL_T, FIELD.WallHeight, WALL_T), Vector3.new(CX, wallY, FIELD.MaxZ + WALL_T / 2), pitch)
+	local wx = WIDTH / 2 + RUNOFF
+	local wz = LENGTH / 2 + RUNOFF
+	wall("WallXMin", Vector3.new(WALL_T, FIELD.WallHeight, 2 * wz + 2 * WALL_T), Vector3.new(CX - wx - WALL_T / 2, wallY, CZ), pitch)
+	wall("WallXMax", Vector3.new(WALL_T, FIELD.WallHeight, 2 * wz + 2 * WALL_T), Vector3.new(CX + wx + WALL_T / 2, wallY, CZ), pitch)
+	wall("WallZMin", Vector3.new(2 * wx + 2 * WALL_T, FIELD.WallHeight, WALL_T), Vector3.new(CX, wallY, CZ - wz - WALL_T / 2), pitch)
+	wall("WallZMax", Vector3.new(2 * wx + 2 * WALL_T, FIELD.WallHeight, WALL_T), Vector3.new(CX, wallY, CZ + wz + WALL_T / 2), pitch)
 
 	buildGoalFrame(FIELD.MinZ, 1, pitch)  -- Blue defends the -Z end
 	buildGoalFrame(FIELD.MaxZ, -1, pitch) -- Red defends the +Z end
 
 	buildMarkings(pitch)
 	buildStands(pitch)
+	buildCornerFlags(pitch)
+	buildHoardings(pitch)
 	tuneLighting()
 
 	local spawnPad = Instance.new("SpawnLocation")

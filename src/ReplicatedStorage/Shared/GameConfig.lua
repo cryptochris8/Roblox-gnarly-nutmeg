@@ -28,12 +28,13 @@ GameConfig.MatchEndScoreboardSeconds = 8
 -- (markings, AI formation spots, boxes, circle), so rescaling the pitch really
 -- is a one-line change — push Length toward 300 for full character-scale FIFA.
 local Field = {
-	Length = 240,            -- north-south extent (along Z)
+	Length = 240,            -- north-south extent (along Z) — the LEGAL pitch, line to line
 	Width = 150,             -- east-west extent (along X)
+	Runoff = 14,             -- grass apron beyond the lines (throw-ins/corners happen here)
 	CenterX = 0,
 	CenterZ = 0,
 	GroundY = 0,             -- top surface of the pitch floor
-	WallHeight = 20,         -- invisible boundary walls
+	WallHeight = 20,         -- invisible boundary walls (out at the apron edge)
 	FloorThickness = 2,
 }
 Field.MinX = Field.CenterX - Field.Width / 2
@@ -72,15 +73,24 @@ GameConfig.Dribble = {
 
 -- ---- Kicking (scaled for the larger pitch; TUNE in playtest) ---------------
 GameConfig.Kick = {
-	PassSpeed = 105,         -- studs/s for a ground pass
+	PassSpeedMin = 70,       -- soft short pass (speed scales with distance)
+	PassSpeedMax = 130,      -- driven long ball
 	PassArc = 0.10,
 	PassMaxRange = 110,      -- furthest teammate considered for a pass (long balls)
+	PassLeadDamping = 0.9,   -- fraction of the physically-perfect lead to apply
+	ReceptionAssist = 1.6,   -- pickup-reach multiplier for the intended receiver
 	ShotSpeedMin = 110,      -- studs/s at no charge
 	ShotSpeedMax = 200,      -- studs/s at full charge
 	ShotArc = 0.18,
+	HumanShotSpreadDeg = 2,  -- slight human inaccuracy (bots use ~7)
 	ChargeSeconds = 1.5,     -- hold time from min -> max power
-	PassLeadFactor = 0.20,
 	AfterKickGraceSeconds = 0.25,
+}
+
+-- ---- Dead-ball restarts (throw-ins / corners / goal kicks) ------------------
+GameConfig.Restart = {
+	FreezeSeconds = 1.5,     -- whistle pause with the ball held on the spot
+	ExclusiveSeconds = 2.0,  -- only the awarded team may take the ball
 }
 
 -- ---- Tackle / contact ------------------------------------------------------

@@ -23,6 +23,7 @@ local AIService = require(script.Parent.AIService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
+local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
 
 local MatchService = {}
 
@@ -31,6 +32,8 @@ local scores = { Red = 0, Blue = 0 }
 local half = 0
 local timeRemaining = 0
 local resultText = ""
+local goldenGoal = false
+local goldenWinner: string? = nil
 local preferred: { [Player]: string } = {}
 
 local matchStateEvent: RemoteEvent
@@ -85,6 +88,8 @@ local function computeResult()
 	local r, b = scores.Red, scores.Blue
 	if r == b then
 		resultText = string.format("Full time — %d : %d. It's a draw!", r, b)
+	elseif goldenWinner then
+		resultText = string.format("GOLDEN GOAL! %s win %d : %d!", goldenWinner, math.max(r, b), math.min(r, b))
 	else
 		local winner = (r > b) and "Red" or "Blue"
 		resultText = string.format("Full time — %s win %d : %d!", winner, math.max(r, b), math.min(r, b))
@@ -128,20 +133,30 @@ local function onGoal(scoreTeam: string)
 		return
 	end
 	scores[scoreTeam] = (scores[scoreTeam] or 0) + 1
-	-- Credit the goal to the last human to touch the ball (if on the scoring team).
+	-- Credit the goal + name the scorer for the broadcast.
 	local scorerUid, scorerTeam = BallService.getLastCarrier()
-	if scorerTeam == scoreTeam and scorerUid ~= 0 then
-		local scorer = Players:GetPlayerByUserId(scorerUid)
-		if scorer then
-			PlayerDataService.addGoal(scorer)
+	local scorerName: string? = nil
+	if scorerTeam == scoreTeam then
+		if scorerUid ~= 0 then
+			local scorer = Players:GetPlayerByUserId(scorerUid)
+			if scorer then
+				PlayerDataService.addGoal(scorer)
+				scorerName = scorer.DisplayName
+			end
+		else
+			scorerName = "a " .. scoreTeam .. " bot"
 		end
+	end
+	if goldenGoal then
+		goldenWinner = scoreTeam
+		timeRemaining = 0 -- sudden death ends the period immediately
 	end
 	state = "GoalPause"
 	AIService.setActive(false)
 	PlayerService.freezeAll(true)
 	BallService.stop()
 	if goalEvent then
-		goalEvent:FireAllClients({ team = scoreTeam, red = scores.Red, blue = scores.Blue })
+		goalEvent:FireAllClients({ team = scoreTeam, red = scores.Red, blue = scores.Blue, scorer = scorerName })
 	end
 	pcall(celebrate, scoreTeam)
 	broadcastNow()
@@ -180,7 +195,7 @@ local function playHalf(h: number)
 	end
 
 	-- Play
-	timeRemaining = GameConfig.HalfDurationSeconds
+	timeRemaining = goldenGoal and GOLDEN_SECONDS or GameConfig.HalfDurationSeconds
 	PlayerService.freezeAll(false)
 	AIService.setActive(true)
 	BallService.kickoff()
@@ -189,8 +204,22 @@ local function playHalf(h: number)
 
 	-- The Heartbeat connection drains timeRemaining while state == "Playing".
 	-- Goal celebrations flip state to GoalPause, which pauses the clock.
-	while timeRemaining > 0 do
-		task.wait(0.2)
+	local stoppageAdded = goldenGoal -- no added time in sudden death
+	while true do
+		while timeRemaining > 0 do
+			task.wait(0.2)
+		end
+		if stoppageAdded then
+			break
+		end
+		-- authentic drama: random added time, once per half
+		stoppageAdded = true
+		local extra = math.random(6, 15)
+		timeRemaining = extra
+		if toastEvent then
+			toastEvent:FireAllClients(("+%d seconds of stoppage time!"):format(extra))
+		end
+		broadcastNow()
 	end
 
 	-- Half over
@@ -207,6 +236,8 @@ local function runMatchLoop()
 		half = 0
 		timeRemaining = 0
 		resultText = ""
+		goldenGoal = false
+		goldenWinner = nil
 		for _, plr in ipairs(Players:GetPlayers()) do
 			ensureAssigned(plr)
 		end
@@ -224,6 +255,17 @@ local function runMatchLoop()
 				end
 				task.wait(HALFTIME_SHORT)
 			end
+		end
+
+		-- A tied final goes to sudden-death GOLDEN GOAL
+		if scores.Red == scores.Blue then
+			goldenGoal = true
+			if toastEvent then
+				toastEvent:FireAllClients("⚡ GOLDEN GOAL — first goal wins!")
+			end
+			task.wait(2)
+			playHalf(3)
+			goldenGoal = false
 		end
 
 		-- Full time

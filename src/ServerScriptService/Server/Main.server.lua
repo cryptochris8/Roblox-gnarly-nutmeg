@@ -38,6 +38,12 @@ local STA = GameConfig.Stamina
 local TACKLE = GameConfig.Tackle
 local NUTMEG = GameConfig.Nutmeg
 
+-- Dead-ball restarts: tell everyone what the whistle was for.
+local toastRemote = Remotes.get(Remotes.Toast)
+BallService.onRestart = function(kind, team)
+	toastRemote:FireAllClients(kind .. " — " .. team)
+end
+
 -- A successful nutmeg: burst the dribbler past their victim, count the stat,
 -- and let every client celebrate it.
 local nutmegEvent = Remotes.get(Remotes.Nutmeg)
@@ -73,7 +79,7 @@ Remotes.get(Remotes.RequestShoot).OnServerEvent:Connect(function(player, charge)
 	end
 	if char and BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "shoot", 0.3) then
 		PlayerService.spendStamina(player, STA.ShootCost)
-		BallService.shootFrom(char, charge)
+		BallService.shootFrom(char, charge, GameConfig.Kick.HumanShotSpreadDeg)
 	end
 end)
 
@@ -106,5 +112,20 @@ end)
 Remotes.get(Remotes.RequestInitialState).OnServerEvent:Connect(function(player)
 	MatchService.sendStateTo(player)
 end)
+
+-- TEMP (Studio-only) test hook so the harness can place the ball to force
+-- throw-in/corner/goal-kick scenarios. REMOVE BEFORE SHIPPING.
+if game:GetService("RunService"):IsStudio() then
+	local dbg = Instance.new("RemoteEvent")
+	dbg.Name = "DebugBallTo"
+	dbg.Parent = ReplicatedStorage
+	dbg.OnServerEvent:Connect(function(_, pos, vel)
+		local b = BallService.getBall()
+		if b and not b.Anchored and typeof(pos) == "Vector3" and BallService.getCarrier() == nil then
+			b.CFrame = CFrame.new(pos)
+			b.AssemblyLinearVelocity = (typeof(vel) == "Vector3") and vel or Vector3.zero
+		end
+	end)
+end
 
 print("[Gnarly Nutmeg] Server ready — kickoff incoming! ⚽")
