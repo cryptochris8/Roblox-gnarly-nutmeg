@@ -25,7 +25,7 @@ local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 
 local TAG = "Footballer"
-local SHOOT_RANGE = 55
+local SHOOT_RANGE = 48 -- bots work it closer before shooting (6v6 keepers eat 55-out efforts)
 
 local AIService = {}
 
@@ -171,12 +171,14 @@ local function botPass(model: Model): boolean
 	return false
 end
 
--- Closest OUTFIELD teammate to the ball (keepers excluded; they have their own job).
+-- Closest outfield BOT on a team to the ball. Humans are deliberately ignored:
+-- a bot must never defer the chase to a human who may be standing AFK (this
+-- exact bug let the other team score on every kickoff while a human idled).
 local function closestOutfieldToBall(team: string, ballPos: Vector3): Model?
 	local best: Model? = nil
 	local bd = math.huge
 	for _, f in ipairs(BallService.listFootballers()) do
-		if f.team == team and f.role ~= GameConfig.GoalkeeperRole then
+		if f.team == team and f.isBot and f.role ~= GameConfig.GoalkeeperRole then
 			local d = hdist(f.root.Position, ballPos)
 			if d < bd then
 				bd = d
@@ -225,7 +227,7 @@ local function decideBot(entry: BotEntry)
 		local halfMouth = GameConfig.Goal.Width / 2
 		-- advance off the line to narrow the angle as the ball gets closer
 		local ballToGoal = hdist(ballPos, ownGoal)
-		local advance = math.clamp(45 - ballToGoal, 0, 16)
+		local advance = math.clamp(45 - ballToGoal, 0, 10)
 		local guardZ = ownGoal.Z + info.attackDir * (3 + advance)
 		-- hold a central position (where shots aim), only shading toward the ball's side
 		local mouthX = math.clamp(ballPos.X * 0.5, ownGoal.X - halfMouth, ownGoal.X + halfMouth)
@@ -249,7 +251,7 @@ local function decideBot(entry: BotEntry)
 		local dGoal = hdist(myPos, targetGoal)
 		if dGoal < SHOOT_RANGE then
 			-- cap at the sweet spot: bots don't balloon overcharged shots
-			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), 7)
+			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), 5)
 			return
 		end
 		local pressured = false
@@ -298,12 +300,10 @@ local function decideBot(entry: BotEntry)
 			hum:MoveTo(Vector3.new(home.X, myPos.Y, (home.Z + ownGoal.Z) / 2))
 			return
 		end
-		if amClosest and hdist(myPos, ballPos) < def.pursuitDistance + 10 then
-			hum:MoveTo(Vector3.new(ballPos.X, myPos.Y, ballPos.Z))
-			return
-		end
-		if restricted == team and amClosest then
-			-- our restart: the nearest bot walks over and takes it from anywhere
+		-- the closest teammate ALWAYS goes to a loose ball, from any distance —
+		-- with no walls, a ball near a line would otherwise sit outside every
+		-- pursuit radius and freeze the match (frozen-throw-in bug, 2026-06-11)
+		if amClosest then
 			hum:MoveTo(Vector3.new(ballPos.X, myPos.Y, ballPos.Z))
 			return
 		end

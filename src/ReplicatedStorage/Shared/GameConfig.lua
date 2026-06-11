@@ -60,7 +60,12 @@ GameConfig.Ball = {
 	LooseDragPerSecond = 0.25, -- rolling / air resistance applied to a loose ball
 	SpawnHeight = 3,         -- studs above GroundY at kickoff
 	PickupRadius = 6,        -- a loose ball within this many studs auto-attaches
-	KeeperReach = 7,         -- goalkeepers claim a ball within this radius (leaves the corners open)
+	KeeperReach = 6,         -- goalkeepers claim a ball within this radius (leaves the corners open)
+	                         -- (was 7 on the 3v3 pitch; 6v6 + the wider goal plays best near 6)
+	MaxClaimSpeed = 40,      -- outfielders can only trap a ball slower than this
+	                         -- (the intended pass receiver and keepers are exempt —
+	                         -- ported from the Hytopia possession design; stops
+	                         -- defenders vacuum-catching driven passes mid-flight)
 }
 
 -- Realistic dribble: the ball is a real physics body steered to ROLL a few studs
@@ -90,7 +95,8 @@ GameConfig.Kick = {
 -- ---- Dead-ball restarts (throw-ins / corners / goal kicks) ------------------
 GameConfig.Restart = {
 	FreezeSeconds = 1.5,     -- whistle pause with the ball held on the spot
-	ExclusiveSeconds = 2.0,  -- only the awarded team may take the ball
+	ExclusiveSeconds = 3.5,  -- only the awarded team may take the ball (long
+	                         -- enough for a far bot to actually walk to the spot)
 }
 
 -- ---- Tackle / contact ------------------------------------------------------

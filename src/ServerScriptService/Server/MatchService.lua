@@ -21,6 +21,7 @@ local PlayerService = require(script.Parent.PlayerService)
 local BallService = require(script.Parent.BallService)
 local AIService = require(script.Parent.AIService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
+local AudioService = require(script.Parent.AudioService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
@@ -158,6 +159,7 @@ local function onGoal(scoreTeam: string)
 	if goalEvent then
 		goalEvent:FireAllClients({ team = scoreTeam, red = scores.Red, blue = scores.Blue, scorer = scorerName })
 	end
+	AudioService.goal()
 	pcall(celebrate, scoreTeam)
 	broadcastNow()
 
@@ -193,6 +195,7 @@ local function playHalf(h: number)
 	if countdownEvent then
 		countdownEvent:FireAllClients(0) -- GO!
 	end
+	AudioService.whistle("short")
 
 	-- Play
 	timeRemaining = goldenGoal and GOLDEN_SECONDS or GameConfig.HalfDurationSeconds
@@ -223,6 +226,7 @@ local function playHalf(h: number)
 	end
 
 	-- Half over
+	AudioService.whistle("long")
 	AIService.setActive(false)
 	PlayerService.freezeAll(true)
 	BallService.stop()

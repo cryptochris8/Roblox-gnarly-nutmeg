@@ -23,6 +23,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local WorldService = require(script.Parent.WorldService)
 local TeamService = require(script.Parent.TeamService)
 local PlayerService = require(script.Parent.PlayerService)
+local AudioService = require(script.Parent.AudioService)
 
 local FIELD = GameConfig.Field
 local BALL = GameConfig.Ball
@@ -287,6 +288,7 @@ function BallService.passFrom(fromModel: Model): boolean
 	expectedReceiver = receiver
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
+	AudioService.kick(speed / KICK.PassSpeedMax * 0.7)
 	return true
 end
 
@@ -311,15 +313,27 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	facing = facing.Magnitude > 0.1 and facing.Unit or Vector3.new(0, 0, 1)
 
 	local goal = TeamService.targetGoalCenter(team)
-	-- placement: where the facing ray meets the goal line decides the corner
 	local halfMouth = math.max(1, GOAL.Width / 2 - GOAL.PostThickness)
 	local aimX = goal.X
-	local dz = goal.Z - ball.Position.Z
-	if math.abs(facing.Z) > 0.05 and (dz / facing.Z) > 0 then
-		aimX = ball.Position.X + facing.X * (dz / facing.Z)
+	if fromModel:GetAttribute("IsBot") == true then
+		-- bots run straight at goal, so facing can't place their shots — they
+		-- pick a corner instead, biased to the FAR post (away from where they
+		-- are), which is how you actually beat a keeper who shades your side
+		local side = (ball.Position.X > goal.X) and -1 or 1
+		if math.random() < 0.3 then
+			side = -side -- sometimes go near post to stay honest
+		end
+		aimX = goal.X + side * halfMouth * (0.55 + math.random() * 0.4)
+	else
+		-- humans place shots by FACING: where your aim ray crosses the goal
+		-- line is where the shot goes (clamped inside the posts, light assist)
+		local dz = goal.Z - ball.Position.Z
+		if math.abs(facing.Z) > 0.05 and (dz / facing.Z) > 0 then
+			aimX = ball.Position.X + facing.X * (dz / facing.Z)
+		end
+		aimX = math.clamp(aimX, goal.X - halfMouth, goal.X + halfMouth)
+		aimX = aimX * 0.9 + goal.X * 0.1
 	end
-	aimX = math.clamp(aimX, goal.X - halfMouth, goal.X + halfMouth)
-	aimX = aimX * 0.85 + goal.X * 0.15 -- light assist toward the frame
 	local dir = Vector3.new(aimX - ball.Position.X, 0, goal.Z - ball.Position.Z)
 	dir = dir.Magnitude > 0.1 and dir.Unit or facing
 
@@ -354,6 +368,7 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	expectedReceiver = nil
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
+	AudioService.kick(charge)
 	return true
 end
 
@@ -399,6 +414,7 @@ function BallService.nutmegFrom(fromModel: Model): boolean
 		through = through.Magnitude > 0.1 and through.Unit or fwd
 		ball.AssemblyLinearVelocity = through * NUTMEG.PokeSpeed -- flat: stays on the grass, between the legs
 		applyStun(v.model, NUTMEG.VictimStumbleSeconds)
+		AudioService.kick(0.3)
 		local cb = BallService.onNutmeg
 		if cb then
 			task.spawn(cb, fromModel, v.model)
@@ -694,6 +710,8 @@ local function tryPickup()
 	-- after a dead ball, only the awarded team may take it for a short window
 	local restricted = (os.clock() < exclusiveUntil) and exclusiveTeam or nil
 	local bp = ball.Position
+	local bv = ball.AssemblyLinearVelocity
+	local ballSpeed = Vector3.new(bv.X, 0, bv.Z).Magnitude
 	local nearest: Footballer? = nil
 	local nd = math.huge
 	for _, f in ipairs(BallService.listFootballers()) do
@@ -703,17 +721,22 @@ local function tryPickup()
 			-- the other team waits out the dead-ball award
 		elseif not (graceActive and f.model == lastKicker) and not isStunnedModel(f.model) then
 			local isKeeper = f.role == "goalkeeper"
-			-- keepers reach further and can claim airborne shots up to the crossbar
-			local reach = isKeeper and BALL.KeeperReach or BALL.PickupRadius
-			if expectedReceiver == f.model then
-				reach *= KICK.ReceptionAssist -- the pass sticks to its target
-			end
-			local maxY = FIELD.GroundY + (isKeeper and (GOAL.Height + 1) or 5)
-			if bp.Y <= maxY then
-				local d = Vector3.new(f.root.Position.X - bp.X, 0, f.root.Position.Z - bp.Z).Magnitude
-				if d <= reach and d < nd then
-					nd = d
-					nearest = f
+			local isReceiver = expectedReceiver == f.model
+			-- a fast ball can only be trapped by its intended receiver or a
+			-- keeper — bystanders can't vacuum-catch a driven pass mid-flight
+			if isKeeper or isReceiver or ballSpeed <= BALL.MaxClaimSpeed then
+				-- keepers reach further and claim airborne shots up to the crossbar
+				local reach = isKeeper and BALL.KeeperReach or BALL.PickupRadius
+				if isReceiver then
+					reach *= KICK.ReceptionAssist -- the pass sticks to its target
+				end
+				local maxY = FIELD.GroundY + (isKeeper and (GOAL.Height + 1) or 5)
+				if bp.Y <= maxY then
+					local d = Vector3.new(f.root.Position.X - bp.X, 0, f.root.Position.Z - bp.Z).Magnitude
+					if d <= reach and d < nd then
+						nd = d
+						nearest = f
+					end
 				end
 			end
 		end

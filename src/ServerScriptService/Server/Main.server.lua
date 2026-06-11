@@ -17,6 +17,7 @@ local PlayerDataService = require(script.Parent.PlayerDataService)
 local TeamService = require(script.Parent.TeamService)
 local PlayerService = require(script.Parent.PlayerService)
 local WorldService = require(script.Parent.WorldService)
+local AudioService = require(script.Parent.AudioService)
 local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 local AIService = require(script.Parent.AIService)
@@ -28,6 +29,7 @@ TeamService.init()       -- create the Red/Blue Teams
 PlayerService.init()     -- stamina loop + character hooks
 
 local world = WorldService.build() -- build the pitch from code
+AudioService.init()                -- stadium crowd + event sounds
 BallService.init(world)            -- spawn the ball + possession loop
 BotAnimationService.init()         -- animates bot rigs (humans animate themselves)
 AIService.init()                   -- bot decision loop (idle until a match is active)
@@ -38,9 +40,10 @@ local STA = GameConfig.Stamina
 local TACKLE = GameConfig.Tackle
 local NUTMEG = GameConfig.Nutmeg
 
--- Dead-ball restarts: tell everyone what the whistle was for.
+-- Dead-ball restarts: whistle, then tell everyone what it was for.
 local toastRemote = Remotes.get(Remotes.Toast)
 BallService.onRestart = function(kind, team)
+	AudioService.whistle("short")
 	toastRemote:FireAllClients(kind .. " — " .. team)
 end
 
@@ -61,6 +64,7 @@ BallService.onNutmeg = function(byModel, _victimModel)
 		local team = (byModel:GetAttribute("Team") :: string?) or ""
 		name = (team ~= "") and ("A " .. team .. " bot") or "A bot"
 	end
+	AudioService.ooh() -- the crowd reacts
 	nutmegEvent:FireAllClients({ name = name, byUserId = uid })
 end
 
@@ -112,20 +116,5 @@ end)
 Remotes.get(Remotes.RequestInitialState).OnServerEvent:Connect(function(player)
 	MatchService.sendStateTo(player)
 end)
-
--- TEMP (Studio-only) test hook so the harness can place the ball to force
--- throw-in/corner/goal-kick scenarios. REMOVE BEFORE SHIPPING.
-if game:GetService("RunService"):IsStudio() then
-	local dbg = Instance.new("RemoteEvent")
-	dbg.Name = "DebugBallTo"
-	dbg.Parent = ReplicatedStorage
-	dbg.OnServerEvent:Connect(function(_, pos, vel)
-		local b = BallService.getBall()
-		if b and not b.Anchored and typeof(pos) == "Vector3" and BallService.getCarrier() == nil then
-			b.CFrame = CFrame.new(pos)
-			b.AssemblyLinearVelocity = (typeof(vel) == "Vector3") and vel or Vector3.zero
-		end
-	end)
-end
 
 print("[Gnarly Nutmeg] Server ready — kickoff incoming! ⚽")
