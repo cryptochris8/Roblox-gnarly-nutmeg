@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Roles = require(Shared:WaitForChild("Roles"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local WorldService = require(script.Parent.WorldService)
@@ -22,6 +23,7 @@ local BallService = require(script.Parent.BallService)
 local AIService = require(script.Parent.AIService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 local AudioService = require(script.Parent.AudioService)
+local BotAnimationService = require(script.Parent.BotAnimationService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
@@ -35,6 +37,11 @@ local timeRemaining = 0
 local resultText = ""
 local goldenGoal = false
 local goldenWinner: string? = nil
+-- penalty shootout state
+local shootoutActive = false
+local shootoutGoalTeam: string? = nil
+local shootoutTally = { Red = 0, Blue = 0 }
+local shootoutWinner: string? = nil
 local preferred: { [Player]: string } = {}
 
 local matchStateEvent: RemoteEvent
@@ -87,7 +94,14 @@ end
 
 local function computeResult()
 	local r, b = scores.Red, scores.Blue
-	if r == b then
+	if r == b and shootoutWinner then
+		resultText = string.format(
+			"%s win it ON PENALTIES! Shootout %d : %d",
+			shootoutWinner,
+			math.max(shootoutTally.Red, shootoutTally.Blue),
+			math.min(shootoutTally.Red, shootoutTally.Blue)
+		)
+	elseif r == b then
 		resultText = string.format("Full time — %d : %d. It's a draw!", r, b)
 	elseif goldenWinner then
 		resultText = string.format("GOLDEN GOAL! %s win %d : %d!", goldenWinner, math.max(r, b), math.min(r, b))
@@ -126,10 +140,41 @@ local function celebrate(scoreTeam: string)
 	task.delay(3, function()
 		part:Destroy()
 	end)
+	-- the crowd's camera flashes pop around the bowl
+	local pitch = Workspace:FindFirstChild("Pitch")
+	if pitch then
+		for _, inst in ipairs(pitch:GetChildren()) do
+			if inst.Name == "CrowdFlash" then
+				local e = inst:FindFirstChildOfClass("ParticleEmitter")
+				if e then
+					task.delay(math.random() * 1.6, function()
+						e:Emit(math.random(1, 3))
+					end)
+				end
+			end
+		end
+	end
+	-- the scorer dances; nearby teammates join in
+	local scorerModel = BallService.getLastKickerModel()
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team == scoreTeam then
+			if f.model == scorerModel then
+				BotAnimationService.celebrate(f.model, "dance")
+			elseif scorerModel and (f.root.Position - (scorerModel :: Model):GetPivot().Position).Magnitude < 32 then
+				BotAnimationService.celebrate(f.model, "cheer")
+			end
+		end
+	end
 end
 
 -- Reacts to a goal from BallService (fires on the server).
 local function onGoal(scoreTeam: string)
+	if shootoutActive then
+		-- shootout goals are tallied by the shootout runner, not the match
+		shootoutGoalTeam = scoreTeam
+		BallService.stop()
+		return
+	end
 	if state ~= "Playing" then
 		return
 	end
@@ -174,6 +219,210 @@ local function onGoal(scoreTeam: string)
 			broadcastNow()
 		end
 	end)
+end
+
+-- ---- penalty shootout --------------------------------------------------------
+
+-- The kicker: a human on the team if one's alive, else the most attacking bot.
+local function pickShooter(team: string): (Model?, Player?)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		local a = TeamService.getAssignment(plr)
+		local char = plr.Character
+		if a and a.team == team and char and char.Parent then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				return char, plr
+			end
+		end
+	end
+	local best: Model? = nil
+	local bestOff = -1
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team == team and f.isBot and f.role ~= GameConfig.GoalkeeperRole then
+			local def = Roles.Definitions[f.role]
+			if def and def.offensive > bestOff then
+				bestOff = def.offensive
+				best = f.model
+			end
+		end
+	end
+	return best, nil
+end
+
+-- One penalty kick for `shootTeam`. Returns true if it went in.
+local function takePenalty(shootTeam: string): boolean
+	local oppName = TeamService.info(shootTeam).opponent
+	local oppInfo = TeamService.info(oppName)
+	local FIELD = GameConfig.Field
+	local spotZ = oppInfo.ownGoalZ + oppInfo.attackDir * (FIELD.Length * 0.105)
+	local spot = Vector3.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Ball.Diameter / 2, spotZ)
+
+	local shooter, shooterPlayer = pickShooter(shootTeam)
+	if not shooter then
+		return false
+	end
+	local keeper: Model? = nil
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team == oppName and f.role == GameConfig.GoalkeeperRole then
+			keeper = f.model
+			break
+		end
+	end
+
+	-- stage the kick: shooter behind the spot facing goal, keeper on his line
+	pcall(function()
+		(shooter :: Model):PivotTo(CFrame.lookAt(
+			Vector3.new(spot.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ + oppInfo.attackDir * 8),
+			Vector3.new(spot.X, FIELD.GroundY + 2, oppInfo.ownGoalZ)
+		))
+	end)
+	if keeper then
+		pcall(function()
+			(keeper :: Model):PivotTo(CFrame.lookAt(
+				Vector3.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Player.SpawnHeight, oppInfo.ownGoalZ + oppInfo.attackDir * 1.5),
+				spot
+			))
+		end)
+	end
+	-- a human keeper defends their own net (unfrozen for the kick)
+	local keeperPlayer: Player? = nil
+	if keeper and (keeper :: Model):GetAttribute("IsBot") ~= true then
+		local uid = ((keeper :: Model):GetAttribute("UserId") :: number?) or 0
+		keeperPlayer = uid ~= 0 and Players:GetPlayerByUserId(uid) or nil
+		if keeperPlayer then
+			PlayerService.setFrozen(keeperPlayer, false)
+		end
+	end
+
+	shootoutGoalTeam = nil
+	local who = shooterPlayer and shooterPlayer.DisplayName or ("a " .. shootTeam .. " bot")
+	if toastEvent then
+		toastEvent:FireAllClients(("Penalty: %s steps up…"):format(who))
+	end
+	BallService.penaltyRestart(shootTeam, spot)
+	if shooterPlayer then
+		PlayerService.setFrozen(shooterPlayer, false) -- the human takes their own kick
+	end
+
+	local deadline = os.clock() + 10
+	local kicked = false
+	local scored = false
+	while os.clock() < deadline do
+		task.wait(0.1)
+		-- keeper mini-AI (the main bot loop is off): shadow the ball on his line
+		if keeper and keeperPlayer == nil then
+			local hum = (keeper :: Model):FindFirstChildOfClass("Humanoid")
+			local root = (keeper :: Model):FindFirstChild("HumanoidRootPart") :: BasePart?
+			if hum and root then
+				local bx = BallService.getBallPosition().X
+				local gx = math.clamp(bx, FIELD.CenterX - GameConfig.Goal.Width / 2 + 1, FIELD.CenterX + GameConfig.Goal.Width / 2 - 1)
+				hum:MoveTo(Vector3.new(gx, root.Position.Y, oppInfo.ownGoalZ + oppInfo.attackDir * 1.5))
+			end
+		end
+		-- bot shooter: walk on, collect, pick a corner and strike
+		if not shooterPlayer then
+			local hum = (shooter :: Model):FindFirstChildOfClass("Humanoid")
+			if hum then
+				if BallService.getCarrier() ~= shooter then
+					hum:MoveTo(spot)
+				elseif not kicked then
+					kicked = true
+					task.wait(0.3) -- a beat of composure
+					BallService.shootFrom(shooter :: Model, 0.6 + math.random() * 0.18, 4)
+				end
+			end
+		end
+		if shootoutGoalTeam == shootTeam then
+			scored = true
+			break
+		end
+		if keeper and BallService.getCarrier() == keeper then
+			break -- SAVED
+		end
+		local bp = BallService.getBallPosition()
+		if math.abs(bp.Z - FIELD.CenterZ) > FIELD.Length / 2 + 1.5 then
+			task.wait(0.35) -- give goal detection one last beat
+			scored = shootoutGoalTeam == shootTeam
+			break
+		end
+	end
+	if shooterPlayer then
+		PlayerService.setFrozen(shooterPlayer, true)
+	end
+	if keeperPlayer then
+		PlayerService.setFrozen(keeperPlayer, true)
+	end
+	BallService.stop()
+	return scored
+end
+
+-- Best-of-5 alternating kicks, then sudden-death pairs. Returns the winner.
+local function runShootout(): string
+	shootoutActive = true
+	shootoutTally = { Red = 0, Blue = 0 }
+	state = "Shootout"
+	AIService.setActive(false)
+	PlayerService.freezeAll(true)
+	BallService.stop()
+	BallService.setShootoutMode(true)
+	repositionEveryone()
+	if toastEvent then
+		toastEvent:FireAllClients("⚽ PENALTY SHOOTOUT — best of 5!")
+	end
+	broadcastNow()
+	task.wait(2.5)
+
+	local taken = { Red = 0, Blue = 0 }
+	-- pick a stadium mood for the drama (replicates to every client)
+	pcall(function()
+		local Lighting = game:GetService("Lighting")
+		Lighting.ClockTime = 18.2 -- shootouts happen under the lights
+		Lighting.Brightness = 1.6
+	end)
+
+	local function decided(): string?
+		if taken.Red < 5 or taken.Blue < 5 then
+			local remR = math.max(0, 5 - taken.Red)
+			local remB = math.max(0, 5 - taken.Blue)
+			if shootoutTally.Red > shootoutTally.Blue + remB then
+				return "Red"
+			end
+			if shootoutTally.Blue > shootoutTally.Red + remR then
+				return "Blue"
+			end
+		elseif taken.Red == taken.Blue and shootoutTally.Red ~= shootoutTally.Blue then
+			return (shootoutTally.Red > shootoutTally.Blue) and "Red" or "Blue"
+		end
+		return nil
+	end
+
+	local winner: string? = nil
+	while not winner do
+		for _, team in ipairs({ "Red", "Blue" }) do
+			local converted = takePenalty(team)
+			taken[team] += 1
+			if converted then
+				shootoutTally[team] += 1
+				AudioService.goal()
+			else
+				AudioService.ooh()
+			end
+			if toastEvent then
+				toastEvent:FireAllClients(("%s — Shootout: Red %d : %d Blue"):format(
+					converted and "GOAL!" or "NO GOAL!", shootoutTally.Red, shootoutTally.Blue))
+			end
+			task.wait(1.8)
+			winner = decided()
+			if winner then
+				break
+			end
+		end
+	end
+
+	BallService.setShootoutMode(false)
+	shootoutActive = false
+	shootoutWinner = winner
+	return winner :: string
 end
 
 local function playHalf(h: number)
@@ -242,10 +491,27 @@ local function runMatchLoop()
 		resultText = ""
 		goldenGoal = false
 		goldenWinner = nil
+		shootoutWinner = nil
+		shootoutTally = { Red = 0, Blue = 0 }
 		for _, plr in ipairs(Players:GetPlayers()) do
 			ensureAssigned(plr)
 		end
 		AIService.spawnForMatch()
+		-- stadium mood for this match: midday, late sun, or under the lights
+		pcall(function()
+			local Lighting = game:GetService("Lighting")
+			local variant = math.random(1, 3)
+			if variant == 1 then
+				Lighting.ClockTime = 14
+				Lighting.Brightness = 2.5
+			elseif variant == 2 then
+				Lighting.ClockTime = 17.2
+				Lighting.Brightness = 2.1
+			else
+				Lighting.ClockTime = 19.2 -- evening kickoff, floodlights doing the work
+				Lighting.Brightness = 1.4
+			end
+		end)
 		broadcastNow()
 		task.wait(1.5)
 
@@ -261,7 +527,7 @@ local function runMatchLoop()
 			end
 		end
 
-		-- A tied final goes to sudden-death GOLDEN GOAL
+		-- A tied final goes to sudden-death GOLDEN GOAL…
 		if scores.Red == scores.Blue then
 			goldenGoal = true
 			if toastEvent then
@@ -270,6 +536,11 @@ local function runMatchLoop()
 			task.wait(2)
 			playHalf(3)
 			goldenGoal = false
+		end
+
+		-- …and if STILL tied, the drama everyone came for: penalties.
+		if scores.Red == scores.Blue then
+			runShootout()
 		end
 
 		-- Full time
@@ -281,6 +552,8 @@ local function runMatchLoop()
 				if scores.Red ~= scores.Blue then
 					local winner = (scores.Red > scores.Blue) and "Red" or "Blue"
 					outcome = (a.team == winner) and "win" or "loss"
+				elseif shootoutWinner then
+					outcome = (a.team == shootoutWinner) and "win" or "loss"
 				end
 				PlayerDataService.recordResult(plr, outcome)
 			end

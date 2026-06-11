@@ -12,6 +12,7 @@ local HudUI = {}
 
 local gui
 local scoreLabel, timerLabel, phaseLabel
+local scoreScale
 local staminaFill
 local chargeHolder, chargeFill
 local countdownLabel
@@ -48,6 +49,8 @@ function HudUI.mount(playerGui)
 	})
 	UiTheme.corner(16, panel)
 	UiTheme.stroke(Color3.fromRGB(0, 0, 0), 2, panel).Transparency = 0.6
+	scoreScale = Instance.new("UIScale")
+	scoreScale.Parent = panel
 
 	scoreLabel = UiTheme.make("TextLabel", {
 		Name = "Score",
@@ -249,6 +252,7 @@ local PHASE_TEXT = {
 	Playing = "Playing",
 	GoalPause = "GOAL!",
 	HalfTime = "Half Time",
+	Shootout = "PENALTY SHOOTOUT",
 	Finished = "Full Time",
 }
 
@@ -307,6 +311,11 @@ function HudUI.goal(info)
 	goalLabel.Text = string.upper(team) .. " GOAL!"
 	if info and info.scorer then
 		HudUI.toast("⚽ " .. tostring(info.scorer) .. " scores!")
+	end
+	-- score bug pop
+	if scoreScale then
+		scoreScale.Scale = 1.25
+		TweenService:Create(scoreScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	end
 	goalLabel.Visible = true
 	goalFrame.BackgroundTransparency = 0.45

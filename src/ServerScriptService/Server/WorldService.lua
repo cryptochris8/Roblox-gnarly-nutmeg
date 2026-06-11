@@ -221,6 +221,120 @@ local function buildStands(parent: Instance)
 	end)
 end
 
+-- Blocky fans filling the stand tiers: torso + head per fan, anchored, no
+-- shadows. End stands wear the home team's colours; the sides are a mix.
+local function buildCrowd(parent: Instance)
+	pcall(function()
+		local tiers = 6
+		local tierH = 4
+		local tierD = 5
+		local standBase = RUNOFF + WALL_T
+		local sideMix = {
+			Color3.fromRGB(235, 235, 235), Color3.fromRGB(70, 110, 225), Color3.fromRGB(225, 70, 70),
+			Color3.fromRGB(80, 190, 120), Color3.fromRGB(250, 200, 60), Color3.fromRGB(150, 90, 200),
+			Color3.fromRGB(40, 44, 60), Color3.fromRGB(245, 130, 60),
+		}
+		local redMix = { Color3.fromRGB(225, 70, 70), Color3.fromRGB(180, 45, 45), Color3.fromRGB(245, 245, 245), Color3.fromRGB(120, 30, 30) }
+		local blueMix = { Color3.fromRGB(70, 110, 225), Color3.fromRGB(45, 70, 180), Color3.fromRGB(245, 245, 245), Color3.fromRGB(25, 40, 120) }
+		local skins = {
+			Color3.fromRGB(255, 213, 170), Color3.fromRGB(234, 184, 130),
+			Color3.fromRGB(196, 142, 102), Color3.fromRGB(150, 103, 71), Color3.fromRGB(106, 70, 48),
+		}
+		local rng = Random.new(7)
+		local function fan(x: number, y: number, z: number, palette: { Color3 })
+			local body = Instance.new("Part")
+			body.Anchored = true
+			body.CanCollide = false
+			body.CanQuery = false -- invisible to raycasts/overlaps (ball logic safety)
+			body.CanTouch = false
+			body.CastShadow = false
+			body.Material = Enum.Material.SmoothPlastic
+			body.Color = palette[rng:NextInteger(1, #palette)]
+			body.Size = Vector3.new(1.3, 1.7, 0.7)
+			body.CFrame = CFrame.new(x, y + 0.85, z) * CFrame.Angles(0, rng:NextNumber(-0.3, 0.3), 0)
+			body.Name = "Fan"
+			body.Parent = parent
+			local head = Instance.new("Part")
+			head.Shape = Enum.PartType.Ball
+			head.Anchored = true
+			head.CanCollide = false
+			head.CanQuery = false
+			head.CanTouch = false
+			head.CastShadow = false
+			head.Material = Enum.Material.SmoothPlastic
+			head.Color = skins[rng:NextInteger(1, #skins)]
+			head.Size = Vector3.new(0.9, 0.9, 0.9)
+			head.CFrame = CFrame.new(x, y + 2.1, z)
+			head.Name = "FanHead"
+			head.Parent = parent
+		end
+		-- a few camera-flash emitters scattered through the bowl (fired on goals)
+		local function flashSpot(x: number, y: number, z: number)
+			local p = Instance.new("Part")
+			p.Name = "CrowdFlash"
+			p.Anchored = true
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.Transparency = 1
+			p.Size = Vector3.new(6, 2, 6)
+			p.CFrame = CFrame.new(x, y + 2, z)
+			p.Parent = parent
+			local e = Instance.new("ParticleEmitter")
+			e.Rate = 0
+			e.Lifetime = NumberRange.new(0.08, 0.18)
+			e.Speed = NumberRange.new(0, 1)
+			e.Size = NumberSequence.new(1.6)
+			e.LightEmission = 1
+			e.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+			e.Transparency = NumberSequence.new(0, 1)
+			e.Parent = p
+		end
+		local step = 4.5
+		local occupancy = 0.45
+		for i = 0, tiers - 1 do
+			local tierTopY = FIELD.GroundY + tierH / 2 + i * (tierH * 0.85) + tierH / 2
+			local outOff = standBase + tierD / 2 + i * tierD
+			-- side stands (mixed colours)
+			local sideLen = LENGTH + 2 * (standBase + tiers * tierD) - 8
+			for _, sx in ipairs({ -1, 1 }) do
+				local x = (sx > 0 and FIELD.MaxX or FIELD.MinX) + sx * outOff
+				local n = math.floor(sideLen / step)
+				for k = 0, n do
+					if rng:NextNumber() < occupancy then
+						fan(x, tierTopY, CZ - sideLen / 2 + k * step + rng:NextNumber(-0.8, 0.8), sideMix)
+					end
+				end
+			end
+			-- end stands (team colours)
+			local endLen = WIDTH + 2 * (standBase + tiers * tierD) - 8
+			for _, sz in ipairs({ -1, 1 }) do
+				local z = (sz > 0 and FIELD.MaxZ or FIELD.MinZ) + sz * outOff
+				local palette = (sz > 0) and redMix or blueMix
+				local n = math.floor(endLen / step)
+				for k = 0, n do
+					if rng:NextNumber() < occupancy then
+						fan(CX - endLen / 2 + k * step + rng:NextNumber(-0.8, 0.8), tierTopY, z, palette)
+					end
+				end
+			end
+			-- camera flashes on the middle tiers
+			if i == 2 or i == 4 then
+				local x = FIELD.MaxX + outOff
+				for fz = -LENGTH / 2, LENGTH / 2, 40 do
+					flashSpot(x, tierTopY, fz)
+					flashSpot(-x, tierTopY, fz)
+				end
+				local z = FIELD.MaxZ + outOff
+				for fx = -WIDTH / 2, WIDTH / 2, 40 do
+					flashSpot(fx, tierTopY, z)
+					flashSpot(fx, tierTopY, -z)
+				end
+			end
+		end
+	end)
+end
+
 local function buildCornerFlags(parent: Instance)
 	pcall(function()
 		for _, sx in ipairs({ -1, 1 }) do
@@ -241,7 +355,8 @@ end
 -- Pitch-side advertising hoardings in the runoff (low boards facing the pitch).
 local function buildHoardings(parent: Instance)
 	pcall(function()
-		local texts = { "GNARLY NUTMEG", "ATHLETE DOMAINS", "WORLD CUP 2026", "⚽ NUTMEG!" }
+		-- (no FIFA/"World Cup" trademarks on anything player-facing)
+		local texts = { "GNARLY NUTMEG", "ATHLETE DOMAINS", "NUTMEG CUP 2026", "⚽ NUTMEG!" }
 		local navy = Color3.fromRGB(18, 24, 48)
 		local boardH = 1.6
 		local function board(pos: Vector3, faceToward: Vector3, segLen: number, textIndex: number)
@@ -385,6 +500,7 @@ function WorldService.build(): World
 
 	buildMarkings(pitch)
 	buildStands(pitch)
+	buildCrowd(pitch)
 	buildCornerFlags(pitch)
 	buildHoardings(pitch)
 	tuneLighting()

@@ -49,9 +49,21 @@ end
 
 -- ---- bot rig: a real R15 avatar dressed in the team kit -------------------
 
-local function dressInKit(model: Model, info)
-	local jersey = info.color
-	local shorts = Color3.fromRGB(245, 245, 245)
+local SKIN_TONES = {
+	Color3.fromRGB(255, 213, 170),
+	Color3.fromRGB(234, 184, 130),
+	Color3.fromRGB(196, 142, 102),
+	Color3.fromRGB(150, 103, 71),
+	Color3.fromRGB(106, 70, 48),
+}
+local KEEPER_JERSEY = Color3.fromRGB(252, 200, 38) -- classic bright keeper kit
+
+local function dressInKit(model: Model, info, def: Roles.RoleDef)
+	-- keepers wear the classic bright jersey; team identity stays on the outline
+	local jersey = def.isKeeper and KEEPER_JERSEY or info.color
+	local shorts = def.isKeeper and Color3.fromRGB(35, 38, 46) or Color3.fromRGB(245, 245, 245)
+	local skin = SKIN_TONES[math.random(1, #SKIN_TONES)]
+	local boots = Color3.fromRGB(28, 28, 30)
 	local function paint(name: string, c: Color3)
 		local p = model:FindFirstChild(name)
 		if p and p:IsA("BasePart") then
@@ -59,24 +71,61 @@ local function dressInKit(model: Model, info)
 			p.Material = Enum.Material.SmoothPlastic
 		end
 	end
-	-- R15 limbs
+	-- short-sleeved jersey + shorts + team socks + boots, varied skin tones
 	paint("UpperTorso", jersey)
-	paint("LowerTorso", jersey)
+	paint("LowerTorso", shorts)
 	paint("LeftUpperArm", jersey)
 	paint("RightUpperArm", jersey)
-	paint("LeftLowerArm", jersey)
-	paint("RightLowerArm", jersey)
+	paint("LeftLowerArm", skin)
+	paint("RightLowerArm", skin)
+	paint("LeftHand", skin)
+	paint("RightHand", skin)
 	paint("LeftUpperLeg", shorts)
 	paint("RightUpperLeg", shorts)
 	paint("LeftLowerLeg", jersey) -- socks
 	paint("RightLowerLeg", jersey)
-	paint("Head", Color3.fromRGB(255, 204, 153)) -- skin tone so heads aren't dark
+	paint("LeftFoot", boots)
+	paint("RightFoot", boots)
+	paint("Head", skin)
 	-- R6 fallback names
 	paint("Torso", jersey)
 	paint("Left Arm", jersey)
 	paint("Right Arm", jersey)
 	paint("Left Leg", shorts)
 	paint("Right Leg", shorts)
+	-- the classic face (built-in texture, always available)
+	pcall(function()
+		local head = model:FindFirstChild("Head")
+		if head and head:IsA("BasePart") and not head:FindFirstChildOfClass("Decal") then
+			local face = Instance.new("Decal")
+			face.Name = "face"
+			face.Face = Enum.NormalId.Front
+			face.Texture = "rbxasset://textures/face.png"
+			face.Parent = head
+		end
+	end)
+	-- shirt number on the back
+	pcall(function()
+		local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+		if torso and torso:IsA("BasePart") then
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "ShirtNumber"
+			gui.Face = Enum.NormalId.Back
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			gui.PixelsPerStud = 64
+			gui.Parent = torso
+			local label = Instance.new("TextLabel")
+			label.BackgroundTransparency = 1
+			label.Size = UDim2.new(1, 0, 1, 0)
+			label.Font = Enum.Font.GothamBlack
+			label.TextScaled = true
+			label.TextColor3 = Color3.fromRGB(255, 255, 255)
+			label.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
+			label.TextStrokeTransparency = 0.2
+			label.Text = tostring(def.number)
+			label.Parent = gui
+		end
+	end)
 	-- a thin team-coloured outline for at-a-glance team identity
 	local hl = model:FindFirstChild("KitOutline") :: Highlight?
 	if not hl then
@@ -84,7 +133,7 @@ local function dressInKit(model: Model, info)
 		hl.Name = "KitOutline"
 	end
 	hl.FillTransparency = 1
-	hl.OutlineColor = jersey
+	hl.OutlineColor = info.color
 	hl.OutlineTransparency = 0
 	hl.Parent = model
 end
@@ -142,7 +191,7 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 		animate:Destroy()
 	end
 
-	dressInKit(bot, info)
+	dressInKit(bot, info, def)
 
 	bot:SetAttribute("Team", team)
 	bot:SetAttribute("Role", role)
@@ -270,6 +319,34 @@ local function decideBot(entry: BotEntry)
 				return
 			end
 		end
+
+		-- POSSESSION FOOTBALL: pass-first, dribble second. Even unpressured,
+		-- give it to a teammate who's clearly better placed (15+ studs more
+		-- advanced and unmarked), and never carry past the role's dribble
+		-- budget — backs circulate quickly, the striker drives longest.
+		local carrySince = (model:GetAttribute("CarrySince") :: number?) or 0
+		local carryTime = os.clock() - carrySince
+		if carryTime > 0.6 then
+			for _, f in ipairs(BallService.listFootballers()) do
+				if f.team == team and f.model ~= model and f.role ~= GameConfig.GoalkeeperRole
+					and hdist(f.root.Position, targetGoal) < dGoal - 15 then
+					local open = true
+					for _, o in ipairs(BallService.listFootballers()) do
+						if o.team ~= team and hdist(o.root.Position, f.root.Position) < 8 then
+							open = false
+							break
+						end
+					end
+					if open and botPass(model) then
+						return
+					end
+				end
+			end
+		end
+		local dribbleBudget = 1.0 + def.offensive * 0.18 -- ~1.5s backs, ~2.8s striker
+		if carryTime > dribbleBudget and botPass(model) then
+			return
+		end
 		hum:MoveTo(Vector3.new(targetGoal.X, myPos.Y, targetGoal.Z))
 		return
 	end
@@ -309,8 +386,18 @@ local function decideBot(entry: BotEntry)
 		end
 	end
 
-	-- TEAMMATE HAS THE BALL / not chasing -> push to a forward support spot
-	local supportZ = home.Z + info.attackDir * 8
+	-- TEAMMATE HAS THE BALL / not chasing -> make yourself a passing option.
+	-- Attackers push AHEAD of the ball into their lane (real support runs);
+	-- disciplined roles stay tied to their home position.
+	local supportZ
+	if carrier and (carrier:GetAttribute("Team") :: string?) == team then
+		local aheadZ = ballPos.Z + info.attackDir * (10 + def.offensive * 2.2)
+		local pull = def.discipline * 0.45 -- backs anchored, striker free
+		supportZ = aheadZ * (1 - pull) + home.Z * pull
+		supportZ = math.clamp(supportZ, GameConfig.Field.MinZ + 6, GameConfig.Field.MaxZ - 6)
+	else
+		supportZ = home.Z + info.attackDir * 8
+	end
 	hum:MoveTo(Vector3.new(home.X, myPos.Y, supportZ))
 end
 

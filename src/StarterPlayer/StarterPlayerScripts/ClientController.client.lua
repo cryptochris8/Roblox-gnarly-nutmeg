@@ -15,6 +15,7 @@ local scripts = script.Parent
 local HudUI = require(scripts:WaitForChild("HudUI"))
 local MenuUI = require(scripts:WaitForChild("MenuUI"))
 local InputController = require(scripts:WaitForChild("InputController"))
+local CameraDirector = require(scripts:WaitForChild("CameraDirector"))
 
 HudUI.mount(playerGui)
 MenuUI.mount(playerGui)
@@ -25,6 +26,16 @@ Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 end)
 Remotes.get(Remotes.Countdown).OnClientEvent:Connect(function(n)
 	HudUI.countdown(n)
+	CameraDirector.countdown(n)
+end)
+-- if we respawn or the match state jumps, never leave the camera stranded
+Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
+	if snap and snap.phase ~= "Countdown" then
+		CameraDirector.reset()
+	end
+end)
+player.CharacterAdded:Connect(function()
+	CameraDirector.reset()
 end)
 Remotes.get(Remotes.GoalScored).OnClientEvent:Connect(function(info)
 	HudUI.goal(info)

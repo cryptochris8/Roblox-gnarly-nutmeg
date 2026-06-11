@@ -20,6 +20,7 @@ local GameConfig = require(script.Parent:WaitForChild("GameConfig"))
 export type RoleDef = {
 	key: RoleKey,
 	name: string,
+	number: number,             -- classic shirt number for the role
 	isKeeper: boolean,
 	offsetLongFrac: number,     -- fraction of pitch LENGTH from OWN goal line toward the opponent
 	laneCrossFrac: number,      -- fraction of pitch WIDTH across the lane, relative to centre
@@ -34,32 +35,32 @@ local Roles = {}
 
 local Definitions: { [string]: RoleDef } = {
 	["goalkeeper"] = {
-		key = "goalkeeper", name = "Goalkeeper", isKeeper = true,
+		key = "goalkeeper", name = "Goalkeeper", number = 1, isKeeper = true,
 		offsetLongFrac = 0.035, laneCrossFrac = 0, defensive = 10, offensive = 1,
 		pursuitDistance = 8.0, pursuitProbability = 0.12, discipline = 0.95,
 	},
 	["left-back"] = {
-		key = "left-back", name = "Left Back", isKeeper = false,
+		key = "left-back", name = "Left Back", number = 2, isKeeper = false,
 		offsetLongFrac = 0.15, laneCrossFrac = -0.26, defensive = 8, offensive = 5,
 		pursuitDistance = 16.0, pursuitProbability = 0.28, discipline = 0.82,
 	},
 	["right-back"] = {
-		key = "right-back", name = "Right Back", isKeeper = false,
+		key = "right-back", name = "Right Back", number = 3, isKeeper = false,
 		offsetLongFrac = 0.15, laneCrossFrac = 0.26, defensive = 8, offensive = 5,
 		pursuitDistance = 16.0, pursuitProbability = 0.28, discipline = 0.82,
 	},
 	["central-midfielder-1"] = {
-		key = "central-midfielder-1", name = "Left Central Midfielder", isKeeper = false,
+		key = "central-midfielder-1", name = "Left Central Midfielder", number = 8, isKeeper = false,
 		offsetLongFrac = 0.36, laneCrossFrac = -0.15, defensive = 6, offensive = 7,
 		pursuitDistance = 22.0, pursuitProbability = 0.38, discipline = 0.72,
 	},
 	["central-midfielder-2"] = {
-		key = "central-midfielder-2", name = "Right Central Midfielder", isKeeper = false,
+		key = "central-midfielder-2", name = "Right Central Midfielder", number = 6, isKeeper = false,
 		offsetLongFrac = 0.36, laneCrossFrac = 0.15, defensive = 6, offensive = 7,
 		pursuitDistance = 22.0, pursuitProbability = 0.38, discipline = 0.72,
 	},
 	["striker"] = {
-		key = "striker", name = "Striker", isKeeper = false,
+		key = "striker", name = "Striker", number = 9, isKeeper = false,
 		offsetLongFrac = 0.46, laneCrossFrac = 0, defensive = 3, offensive = 10,
 		pursuitDistance = 26.0, pursuitProbability = 0.42, discipline = 0.62,
 	},

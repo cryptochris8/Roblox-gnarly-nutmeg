@@ -73,6 +73,35 @@ function BotAnimationService.attach(model: Model)
 	end
 end
 
+-- Roblox-owned emotes (loadable in any game), used for goal celebrations.
+local EMOTE_IDS = {
+	dance = { "rbxassetid://507771019", "rbxassetid://507776043", "rbxassetid://507777268" },
+	cheer = { "rbxassetid://507770677" },
+}
+
+-- One-shot celebration on ANY humanoid rig (bots, humans, even the linesmen).
+-- Action priority sits above the locomotion tracks, so no state juggling.
+function BotAnimationService.celebrate(model: Model, kind: string)
+	pcall(function()
+		local hum = model:FindFirstChildOfClass("Humanoid")
+		local animator = hum and hum:FindFirstChildOfClass("Animator")
+		if not animator then
+			return
+		end
+		local pool = EMOTE_IDS[kind] or EMOTE_IDS.cheer
+		local anim = Instance.new("Animation")
+		anim.AnimationId = pool[math.random(1, #pool)]
+		local track = (animator :: Animator):LoadAnimation(anim)
+		track.Priority = Enum.AnimationPriority.Action
+		track.Looped = true
+		track:Play(0.15)
+		task.delay(2.6, function()
+			track:Stop(0.3)
+			track:Destroy()
+		end)
+	end)
+end
+
 local function step()
 	for model, rig in pairs(rigs) do
 		if not model:IsDescendantOf(game) or rig.hum.Health <= 0 then

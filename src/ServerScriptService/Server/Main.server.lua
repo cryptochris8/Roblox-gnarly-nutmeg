@@ -21,6 +21,7 @@ local AudioService = require(script.Parent.AudioService)
 local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 local AIService = require(script.Parent.AIService)
+local RefereeService = require(script.Parent.RefereeService)
 local MatchService = require(script.Parent.MatchService)
 
 -- 3) Initialize, in dependency order.
@@ -33,6 +34,7 @@ AudioService.init()                -- stadium crowd + event sounds
 BallService.init(world)            -- spawn the ball + possession loop
 BotAnimationService.init()         -- animates bot rigs (humans animate themselves)
 AIService.init()                   -- bot decision loop (idle until a match is active)
+RefereeService.init()              -- touchline assistant referees (cosmetic)
 MatchService.init(world)           -- match state machine + continuous match loop
 
 -- 4) Cross-service hooks + client input intents. The server validates everything.

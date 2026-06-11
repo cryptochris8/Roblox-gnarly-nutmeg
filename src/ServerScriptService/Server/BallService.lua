@@ -135,6 +135,7 @@ local function setPossession(model: Model?)
 		lastCarrierTeam = (model:GetAttribute("Team") :: string?) or lastCarrierTeam
 		lastKicker = nil -- someone has the ball; clear the post-kick exclusion
 		expectedReceiver = nil -- the pass (if any) has been received
+		model:SetAttribute("CarrySince", os.clock()) -- AI uses this for its dribble budget
 	end
 	-- The ball is ALWAYS a real physics body now (rolls/bounces); possession just
 	-- decides whether carry() steers it. Keep it server-owned for authority.
@@ -161,6 +162,12 @@ end
 -- The last footballer to possess the ball (for crediting goals). userId 0 = a bot.
 function BallService.getLastCarrier(): (number, string?)
 	return lastCarrierUserId, lastCarrierTeam
+end
+
+-- The model that struck the last kick (a goal's ball is always loose, so on a
+-- goal this IS the scorer — used to aim the celebration at the right player).
+function BallService.getLastKickerModel(): Model?
+	return lastKicker
 end
 
 function BallService.isLoose(): boolean
@@ -603,10 +610,24 @@ local function beginRestart(kind: string, team: string, spot: Vector3)
 	end)
 end
 
+-- During a penalty shootout the shootout runner owns the ball's fate; normal
+-- out-of-bounds whistles are suspended.
+local shootoutMode = false
+
+function BallService.setShootoutMode(on: boolean)
+	shootoutMode = on and true or false
+end
+
+-- Place the ball on a penalty spot for `team` (whistle + exclusive take).
+function BallService.penaltyRestart(team: string, spot: Vector3)
+	enabled = true
+	beginRestart("Penalty", team, spot)
+end
+
 -- FIFA rules: over the touchline = throw-in to the other team; over the goal
 -- line outside the goal = corner (if the defenders touched it last) or goal kick.
 local function checkOutOfBounds()
-	if not ball or not enabled or restartActive then
+	if not ball or not enabled or restartActive or shootoutMode then
 		return
 	end
 	local p = ball.Position
