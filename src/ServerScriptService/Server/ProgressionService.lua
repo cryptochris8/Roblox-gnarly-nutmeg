@@ -1,0 +1,275 @@
+--!strict
+-- ProgressionService (SERVER)
+-- XP, levels, three rotating daily quests, and the login streak — the reasons
+-- to come back tomorrow. XP flows in from match events (Main/MatchService call
+-- `note`), quests auto-claim on completion, the streak pays out on the first
+-- join of each UTC day, and everything persists inside the PlayerDataService
+-- profile. Pushes a ProgressionSync snapshot to the owning client on change.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Skills = require(Shared:WaitForChild("Skills"))
+
+local PlayerDataService = require(script.Parent.PlayerDataService)
+
+local ProgressionService = {}
+
+-- XP for each tracked event
+local XP_FOR: { [string]: number } = {
+	goals = 25,
+	nutmegs = 15,
+	tackles = 8,
+	passes = 3,
+	shots = 2,
+	wins = 30,
+	matches = 20,
+}
+
+-- the daily quest pool; 3 are drawn per UTC day (same draw for everyone)
+type QuestDef = { id: string, text: string, stat: string, target: number, xp: number }
+local QUEST_POOL: { QuestDef } = {
+	{ id = "goals2", text = "Score 2 goals", stat = "goals", target = 2, xp = 60 },
+	{ id = "win1", text = "Win a match", stat = "wins", target = 1, xp = 80 },
+	{ id = "megs2", text = "Nutmeg 2 defenders", stat = "nutmegs", target = 2, xp = 70 },
+	{ id = "pass8", text = "Complete 8 passes", stat = "passes", target = 8, xp = 50 },
+	{ id = "tackle5", text = "Win 5 tackles", stat = "tackles", target = 5, xp = 50 },
+	{ id = "match3", text = "Finish 3 matches", stat = "matches", target = 3, xp = 60 },
+	{ id = "shot6", text = "Take 6 shots", stat = "shots", target = 6, xp = 40 },
+}
+
+local LEVEL_CAP = 50
+
+local syncEvent: RemoteEvent? = nil
+local toastEvent: RemoteEvent? = nil
+local syncQueued: { [Player]: boolean } = {}
+
+local function utcDay(): number
+	return math.floor(os.time() / 86400)
+end
+
+-- XP needed to go from `level` to `level + 1` (fast early levels)
+local function xpToNext(level: number): number
+	return 100 + (level - 1) * 60
+end
+
+local function levelFromTotalXP(total: number): (number, number, number)
+	local level = 1
+	local rem = total
+	while level < LEVEL_CAP and rem >= xpToNext(level) do
+		rem -= xpToNext(level)
+		level += 1
+	end
+	return level, rem, xpToNext(level)
+end
+
+local function todaysQuests(): { QuestDef }
+	-- deterministic per-day draw, same for every player
+	local rng = Random.new(utcDay())
+	local pool = table.clone(QUEST_POOL)
+	for i = #pool, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		pool[i], pool[j] = pool[j], pool[i]
+	end
+	return { pool[1], pool[2], pool[3] }
+end
+
+local function toastTo(player: Player, text: string)
+	if toastEvent then
+		toastEvent:FireClient(player, text)
+	end
+end
+
+-- profile.Progression = { XP, Quests = { day, progress = {id->n}, claimed = {id->true} }, Streak = { lastDay, count } }
+local function progression(player: Player): any?
+	local p = PlayerDataService.get(player) :: any
+	if not p then
+		return nil
+	end
+	if type(p.Progression) ~= "table" then
+		p.Progression = { XP = 0, Quests = { day = 0, progress = {}, claimed = {} }, Streak = { lastDay = 0, count = 0 } }
+	end
+	local prog = p.Progression
+	prog.XP = tonumber(prog.XP) or 0
+	if type(prog.Quests) ~= "table" then
+		prog.Quests = { day = 0, progress = {}, claimed = {} }
+	end
+	if type(prog.Streak) ~= "table" then
+		prog.Streak = { lastDay = 0, count = 0 }
+	end
+	-- a new day resets quest progress
+	if prog.Quests.day ~= utcDay() then
+		prog.Quests = { day = utcDay(), progress = {}, claimed = {} }
+	end
+	return prog
+end
+
+local function refreshLevelStat(player: Player, level: number)
+	local stats = player:FindFirstChild("leaderstats")
+	local lv = stats and stats:FindFirstChild("Level")
+	if lv and lv:IsA("IntValue") then
+		lv.Value = level
+	end
+end
+
+function ProgressionService.getLevel(player: Player): number
+	local prog = progression(player)
+	if not prog then
+		return 1
+	end
+	local level = levelFromTotalXP(prog.XP)
+	return level
+end
+
+-- Queue a sync to the owning client (coalesces bursts).
+function ProgressionService.sync(player: Player)
+	if syncQueued[player] then
+		return
+	end
+	syncQueued[player] = true
+	task.delay(0.4, function()
+		syncQueued[player] = nil
+		if player.Parent == nil then
+			return
+		end
+		local prog = progression(player)
+		if not prog or not syncEvent then
+			return
+		end
+		local level, into, need = levelFromTotalXP(prog.XP)
+		local quests = {}
+		for _, q in ipairs(todaysQuests()) do
+			quests[#quests + 1] = {
+				id = q.id,
+				text = q.text,
+				xp = q.xp,
+				target = q.target,
+				progress = math.min(tonumber(prog.Quests.progress[q.id]) or 0, q.target),
+				done = prog.Quests.claimed[q.id] == true,
+			}
+		end
+		;(syncEvent :: RemoteEvent):FireClient(player, {
+			xp = prog.XP,
+			level = level,
+			xpInto = into,
+			xpNeed = need,
+			quests = quests,
+			streak = prog.Streak.count,
+		})
+		refreshLevelStat(player, level)
+	end)
+end
+
+-- Grant XP (level-ups + unlock announcements ride the sync/toasts).
+function ProgressionService.addXP(player: Player, amount: number, reason: string?)
+	local prog = progression(player)
+	if not prog or amount <= 0 then
+		return
+	end
+	local beforeLevel = levelFromTotalXP(prog.XP)
+	prog.XP += amount
+	local afterLevel = levelFromTotalXP(prog.XP)
+	if afterLevel > beforeLevel then
+		toastTo(player, ("⬆ LEVEL %d!"):format(afterLevel))
+		for _, s in ipairs(Skills.List) do
+			if s.unlockLevel > beforeLevel and s.unlockLevel <= afterLevel then
+				toastTo(player, ("🔓 %s unlocked — press %s!"):format(s.name, s.key.Name))
+			end
+		end
+	end
+	ProgressionService.sync(player)
+end
+
+-- Record a tracked event: base XP + daily-quest progress (auto-claim).
+function ProgressionService.note(player: Player, stat: string, n: number?)
+	local count = n or 1
+	local prog = progression(player)
+	if not prog then
+		return
+	end
+	local base = (XP_FOR[stat] or 0) * count
+	for _, q in ipairs(todaysQuests()) do
+		if q.stat == stat and not prog.Quests.claimed[q.id] then
+			local cur = (tonumber(prog.Quests.progress[q.id]) or 0) + count
+			prog.Quests.progress[q.id] = cur
+			if cur >= q.target then
+				prog.Quests.claimed[q.id] = true
+				base += q.xp
+				toastTo(player, ("✅ Quest complete: %s  (+%d XP)"):format(q.text, q.xp))
+			end
+		end
+	end
+	if base > 0 then
+		ProgressionService.addXP(player, base, stat)
+	else
+		ProgressionService.sync(player)
+	end
+end
+
+-- First join of the day: advance/reset the streak and pay it out.
+local function handleStreak(player: Player)
+	local prog = progression(player)
+	if not prog then
+		return
+	end
+	local today = utcDay()
+	local s = prog.Streak
+	if s.lastDay == today then
+		return -- already counted today
+	end
+	if s.lastDay == today - 1 then
+		s.count = (tonumber(s.count) or 0) + 1
+	else
+		s.count = 1
+	end
+	s.lastDay = today
+	local reward = 25 + 15 * math.min(s.count, 7)
+	if s.count > 0 and s.count % 7 == 0 then
+		reward += 150
+		toastTo(player, ("🔥 %d-day streak — milestone bonus!"):format(s.count))
+	end
+	toastTo(player, ("🔥 Day %d login streak: +%d XP"):format(s.count, reward))
+	ProgressionService.addXP(player, reward, "streak")
+end
+
+function ProgressionService.init()
+	syncEvent = Remotes.get(Remotes.ProgressionSync)
+	toastEvent = Remotes.get(Remotes.Toast)
+
+	local function onJoin(player: Player)
+		task.spawn(function()
+			-- wait for the profile (PlayerDataService loads it async)
+			local deadline = os.clock() + 30
+			while PlayerDataService.get(player) == nil and player.Parent ~= nil and os.clock() < deadline do
+				task.wait(0.5)
+			end
+			if player.Parent == nil then
+				return
+			end
+			-- a Level leaderstat next to Goals/Wins/Nutmegs/Trophies
+			pcall(function()
+				local stats = player:WaitForChild("leaderstats", 10)
+				if stats and not stats:FindFirstChild("Level") then
+					local lv = Instance.new("IntValue")
+					lv.Name = "Level"
+					lv.Value = ProgressionService.getLevel(player)
+					lv.Parent = stats
+				end
+			end)
+			handleStreak(player)
+			ProgressionService.sync(player)
+		end)
+	end
+
+	Players.PlayerAdded:Connect(onJoin)
+	for _, player in ipairs(Players:GetPlayers()) do
+		onJoin(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		syncQueued[player] = nil
+	end)
+end
+
+return ProgressionService

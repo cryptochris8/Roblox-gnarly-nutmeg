@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Skills = require(Shared:WaitForChild("Skills"))
 
 -- 1) Create the RemoteEvents before anything tries to use them.
 Remotes.setupServer()
@@ -22,6 +23,7 @@ local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 local AIService = require(script.Parent.AIService)
 local RefereeService = require(script.Parent.RefereeService)
+local ProgressionService = require(script.Parent.ProgressionService)
 local MatchService = require(script.Parent.MatchService)
 local TournamentService = require(script.Parent.TournamentService)
 
@@ -36,6 +38,7 @@ BallService.init(world)            -- spawn the ball + possession loop
 BotAnimationService.init()         -- animates bot rigs (humans animate themselves)
 AIService.init()                   -- bot decision loop (idle until a match is active)
 RefereeService.init()              -- touchline assistant referees (cosmetic)
+ProgressionService.init()          -- XP / levels / daily quests / login streak
 TournamentService.init()           -- The Nutmeg Trophy (knockout bracket)
 MatchService.init(world)           -- match state machine + continuous match loop
 
@@ -73,7 +76,24 @@ BallService.onNutmeg = function(byModel, _victimModel)
 		name = (team ~= "") and ("A " .. team .. " bot") or "A bot"
 	end
 	AudioService.ooh() -- the crowd reacts
+	if uid ~= 0 then
+		local plr = Players:GetPlayerByUserId(uid)
+		if plr then
+			ProgressionService.note(plr, "nutmegs")
+		end
+	end
 	nutmegEvent:FireAllClients({ name = name, byUserId = uid })
+end
+
+-- a human's pass finding its intended receiver counts toward quests/XP
+BallService.onPassComplete = function(kickerModel, _receiverModel)
+	local uid = (kickerModel:GetAttribute("UserId") :: number?) or 0
+	if uid ~= 0 then
+		local plr = Players:GetPlayerByUserId(uid)
+		if plr then
+			ProgressionService.note(plr, "passes")
+		end
+	end
 end
 
 Remotes.get(Remotes.RequestPass).OnServerEvent:Connect(function(player)
@@ -91,7 +111,9 @@ Remotes.get(Remotes.RequestShoot).OnServerEvent:Connect(function(player, charge)
 	end
 	if char and BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "shoot", 0.3) then
 		PlayerService.spendStamina(player, STA.ShootCost)
-		BallService.shootFrom(char, charge, GameConfig.Kick.HumanShotSpreadDeg)
+		if BallService.shootFrom(char, charge, GameConfig.Kick.HumanShotSpreadDeg) then
+			ProgressionService.note(player, "shots")
+		end
 	end
 end)
 
@@ -99,7 +121,41 @@ Remotes.get(Remotes.RequestTackle).OnServerEvent:Connect(function(player)
 	local char = player.Character
 	if char and not BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "tackle", TACKLE.Cooldown) then
 		PlayerService.spendStamina(player, STA.TackleCost)
-		BallService.tackleAttempt(char)
+		if BallService.tackleAttempt(char) then
+			ProgressionService.note(player, "tackles")
+		end
+	end
+end)
+
+-- Skill moves: validated here (level, possession, cooldown, stamina), executed
+-- in BallService. Locked attempts get a teaching toast instead of silence.
+Remotes.get(Remotes.RequestSkill).OnServerEvent:Connect(function(player, skillId)
+	if type(skillId) ~= "string" then
+		return
+	end
+	local def = Skills.byId(skillId)
+	local char = player.Character
+	if not def or not char or not BallService.carrierIsPlayer(player) then
+		return
+	end
+	if ProgressionService.getLevel(player) < def.unlockLevel then
+		toastRemote:FireClient(player, ("🔒 %s unlocks at Level %d"):format(def.name, def.unlockLevel))
+		return
+	end
+	if not PlayerService.tryAction(player, "skill_" .. skillId, def.cooldown) then
+		return
+	end
+	PlayerService.spendStamina(player, def.stamina)
+	if skillId == "elastico" then
+		if BallService.skillElastico(char) then
+			PlayerService.burst(player, 1.4, 0.5)
+		end
+	elseif skillId == "roulette" then
+		BallService.skillRoulette(char)
+	elseif skillId == "rainbow" then
+		if BallService.skillRainbow(char) then
+			AudioService.ooh()
+		end
 	end
 end)
 

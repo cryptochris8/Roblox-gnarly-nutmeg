@@ -24,6 +24,7 @@ local AIService = require(script.Parent.AIService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 local AudioService = require(script.Parent.AudioService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
+local ProgressionService = require(script.Parent.ProgressionService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
@@ -204,6 +205,7 @@ local function onGoal(scoreTeam: string)
 			local scorer = Players:GetPlayerByUserId(scorerUid)
 			if scorer then
 				PlayerDataService.addGoal(scorer)
+				ProgressionService.note(scorer, "goals")
 				scorerName = scorer.DisplayName
 			end
 		else
@@ -587,6 +589,10 @@ local function runMatchLoop()
 					outcome = (a.team == shootoutWinner) and "win" or "loss"
 				end
 				PlayerDataService.recordResult(plr, outcome)
+				ProgressionService.note(plr, "matches")
+				if outcome == "win" then
+					ProgressionService.note(plr, "wins")
+				end
 			end
 		end
 		state = "Finished"

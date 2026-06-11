@@ -8,21 +8,48 @@
 --   Tackle : F / X / touch
 --   Nutmeg : Q / Y / touch (poke the ball through a close defender)
 --   Sprint : LeftShift / L2 / touch (hold)
+--   Skills : R = Elastico Dash, T = Roulette, G = Rainbow Flick (level-gated
+--            server-side; locked presses get a teaching toast)
 
 local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Skills = require(Shared:WaitForChild("Skills"))
 
 local InputController = {}
 
 local CHARGE_SECONDS = GameConfig.Kick.ChargeSeconds
-local passEvent, shootEvent, tackleEvent, nutmegEvent, sprintEvent
+local passEvent, shootEvent, tackleEvent, nutmegEvent, sprintEvent, skillEvent
 local chargeStart = nil
 local hudRef = nil
+
+-- The roulette spin is played by US (the client owns its character's physics;
+-- a server-driven per-frame spin would stutter). The server grants the actual
+-- tackle immunity.
+local function spinLocal()
+	local char = Players.LocalPlayer.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not root or not hum then
+		return
+	end
+	task.spawn(function()
+		hum.AutoRotate = false
+		local t0 = os.clock()
+		local startCf = root.CFrame - root.CFrame.Position
+		while os.clock() - t0 < 0.45 do
+			local a = math.clamp((os.clock() - t0) / 0.45, 0, 1) * math.pi * 2
+			root.CFrame = CFrame.new(root.Position) * startCf * CFrame.Angles(0, a, 0)
+			task.wait()
+		end
+		hum.AutoRotate = true
+	end)
+end
 
 local function onPass(_, state)
 	if state == Enum.UserInputState.Begin then
@@ -77,6 +104,7 @@ function InputController.start(hud)
 	tackleEvent = Remotes.get(Remotes.RequestTackle)
 	nutmegEvent = Remotes.get(Remotes.RequestNutmeg)
 	sprintEvent = Remotes.get(Remotes.SetSprint)
+	skillEvent = Remotes.get(Remotes.RequestSkill)
 
 	ContextActionService:BindAction("GN_Shoot", onShoot, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
 	ContextActionService:BindAction("GN_Pass", onPass, true, Enum.KeyCode.E, Enum.KeyCode.ButtonL1)
@@ -89,6 +117,21 @@ function InputController.start(hud)
 	ContextActionService:SetTitle("GN_Tackle", "Tackle")
 	ContextActionService:SetTitle("GN_Nutmeg", "Nutmeg")
 	ContextActionService:SetTitle("GN_Sprint", "Sprint")
+
+	-- the unlockable skill moves (bound from shared data)
+	for _, s in ipairs(Skills.List) do
+		local id = s.id
+		ContextActionService:BindAction("GN_Skill_" .. id, function(_, state)
+			if state == Enum.UserInputState.Begin then
+				skillEvent:FireServer(id)
+				if id == "roulette" then
+					spinLocal()
+				end
+			end
+			return Enum.ContextActionResult.Pass
+		end, true, s.key, s.pad)
+		ContextActionService:SetTitle("GN_Skill_" .. id, string.split(s.name, " ")[1])
+	end
 
 	-- Live-update the charge meter while holding shoot.
 	RunService.RenderStepped:Connect(function()

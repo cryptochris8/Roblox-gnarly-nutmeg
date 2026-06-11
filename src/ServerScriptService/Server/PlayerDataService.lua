@@ -39,6 +39,7 @@ export type Profile = {
 	Matches: number,
 	Nutmegs: number,
 	Trophies: number,
+	Progression: any?, -- XP/quests/streak blob owned by ProgressionService
 }
 
 local profiles: { [Player]: Profile } = {}
@@ -53,6 +54,7 @@ local function serialize(p: Profile)
 		version = DATA_VERSION,
 		Goals = p.Goals, Wins = p.Wins, Losses = p.Losses, Draws = p.Draws, Matches = p.Matches,
 		Nutmegs = p.Nutmegs, Trophies = p.Trophies,
+		Progression = p.Progression,
 	}
 end
 
@@ -66,6 +68,9 @@ local function deserialize(data: any): Profile
 		p.Matches = tonumber(data.Matches) or 0
 		p.Nutmegs = tonumber(data.Nutmegs) or 0
 		p.Trophies = tonumber(data.Trophies) or 0
+		if type(data.Progression) == "table" then
+			p.Progression = data.Progression
+		end
 	end
 	return p
 end

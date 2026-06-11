@@ -14,6 +14,8 @@ local gui
 local scoreLabel, timerLabel, phaseLabel
 local scoreScale
 local boardFrame, boardLabel
+local xpFill, xpText, levelLabel, dingSound
+local lastLevel = nil
 local staminaFill
 local chargeHolder, chargeFill
 local countdownLabel
@@ -190,6 +192,52 @@ function HudUI.mount(playerGui)
 		Parent = goalFrame,
 	})
 	UiTheme.stroke(C.Ink, 3, goalLabel)
+
+	-- XP bar + level (bottom right)
+	local xpBg = UiTheme.make("Frame", {
+		Name = "XpBar",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -18, 1, -18),
+		Size = UDim2.fromOffset(240, 20),
+		BackgroundColor3 = C.Track,
+		Parent = gui,
+	})
+	UiTheme.corner(10, xpBg)
+	xpFill = UiTheme.make("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(0, 0, 1, 0),
+		BackgroundColor3 = Color3.fromRGB(245, 196, 60),
+		Parent = xpBg,
+	})
+	UiTheme.corner(10, xpFill)
+	xpText = UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = 12,
+		TextColor3 = C.Ink,
+		Text = "LV 1",
+		Size = UDim2.new(1, 0, 1, 0),
+		Parent = xpBg,
+	})
+	-- LEVEL UP! splash
+	levelLabel = UiTheme.make("TextLabel", {
+		Name = "LevelUp",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.22, 0),
+		Size = UDim2.fromOffset(520, 80),
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 52,
+		TextColor3 = Color3.fromRGB(245, 196, 60),
+		Text = "",
+		Visible = false,
+		Parent = gui,
+	})
+	UiTheme.stroke(C.Ink, 3, levelLabel)
+	dingSound = Instance.new("Sound")
+	dingSound.SoundId = "rbxasset://sounds/electronicpingshort.wav" -- built-in, always available
+	dingSound.Volume = 0.6
+	dingSound.Parent = gui
 
 	-- Tournament board (bracket results between matches)
 	boardFrame = UiTheme.make("Frame", {
@@ -434,6 +482,32 @@ function HudUI.possession(mine)
 	if ballChip then
 		ballChip.Visible = mine and true or false
 	end
+end
+
+function HudUI.progression(data)
+	if not gui or not data then
+		return
+	end
+	local need = tonumber(data.xpNeed) or 1
+	local into = tonumber(data.xpInto) or 0
+	local frac = math.clamp(need > 0 and into / need or 1, 0, 1)
+	TweenService:Create(xpFill, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(frac, 0, 1, 0),
+	}):Play()
+	xpText.Text = ("LV %d   %d / %d XP"):format(data.level or 1, into, need)
+	if lastLevel and (data.level or 1) > lastLevel then
+		levelLabel.Text = ("⬆ LEVEL %d!"):format(data.level)
+		levelLabel.Rotation = -6
+		levelLabel.Visible = true
+		TweenService:Create(levelLabel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
+		if dingSound then
+			dingSound:Play()
+		end
+		task.delay(2.2, function()
+			levelLabel.Visible = false
+		end)
+	end
+	lastLevel = data.level or 1
 end
 
 function HudUI.toast(text)

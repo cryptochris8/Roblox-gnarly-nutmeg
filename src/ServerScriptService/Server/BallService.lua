@@ -55,6 +55,8 @@ BallService.onGoal = nil :: (((scoreTeam: string) -> ())?)
 BallService.onNutmeg = nil :: (((byModel: Model, victimModel: Model) -> ())?)
 -- Set by Main: BallService.onRestart(kind, team) -- "Throw-in"/"Corner kick"/"Goal kick"
 BallService.onRestart = nil :: (((kind: string, team: string) -> ())?)
+-- Set by Main: a human's pass reached its intended receiver (quest/XP credit)
+BallService.onPassComplete = nil :: (((kickerModel: Model, receiverModel: Model) -> ())?)
 
 local ball: Part? = nil
 local shotTrail: Trail? = nil
@@ -442,6 +444,10 @@ function BallService.tackleAttempt(byModel: Model): boolean
 	if byTeam == carrierTeam then
 		return false
 	end
+	-- a spinning carrier (roulette) can't be tackled
+	if ((carrier:GetAttribute("SpinImmuneUntil") :: number?) or 0) > os.clock() then
+		return false
+	end
 	local byRoot = byModel:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local cRoot = carrier:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not byRoot or not cRoot then
@@ -763,8 +769,76 @@ local function tryPickup()
 		end
 	end
 	if nearest then
+		-- a completed pass = the intended receiver collecting it (capture before
+		-- setPossession clears the bookkeeping)
+		local completedBy: Model? = nil
+		if nearest.model == expectedReceiver and lastKicker and lastKicker ~= nearest.model then
+			completedBy = lastKicker
+		end
 		setPossession(nearest.model)
+		if completedBy then
+			local cb = BallService.onPassComplete
+			if cb then
+				task.spawn(cb, completedBy :: Model, nearest.model)
+			end
+		end
 	end
+end
+
+-- ---- unlockable skill moves (validated by Main: level/cooldown/stamina) -----
+
+-- Elastico dash: a sharp burst in your movement direction with the ball glued.
+function BallService.skillElastico(fromModel: Model): boolean
+	if carrier ~= fromModel or not ball then
+		return false
+	end
+	local root = fromModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hum = fromModel:FindFirstChildOfClass("Humanoid")
+	if not root or not hum then
+		return false
+	end
+	local dir = hum.MoveDirection
+	dir = Vector3.new(dir.X, 0, dir.Z)
+	if dir.Magnitude < 0.1 then
+		local f = root.CFrame.LookVector
+		dir = Vector3.new(f.X, 0, f.Z)
+	end
+	dir = dir.Magnitude > 0.05 and dir.Unit or Vector3.new(0, 0, 1)
+	root.CFrame = root.CFrame + dir * 6 -- the dash; carry() snaps the ball along
+	fromModel:SetAttribute("SkillFlashUntil", os.clock() + 0.4)
+	return true
+end
+
+-- Roulette: brief tackle immunity while you turn (the spin itself is played by
+-- the owning client, which owns its character's physics).
+function BallService.skillRoulette(fromModel: Model): boolean
+	if carrier ~= fromModel then
+		return false
+	end
+	fromModel:SetAttribute("SpinImmuneUntil", os.clock() + 0.8)
+	return true
+end
+
+-- Rainbow flick: pop the ball up and over — only YOU (reception assist) or a
+-- keeper can touch it in flight, thanks to the claim-speed gate.
+function BallService.skillRainbow(fromModel: Model): boolean
+	if carrier ~= fromModel or not ball then
+		return false
+	end
+	local root = fromModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return false
+	end
+	local f = root.CFrame.LookVector
+	local dir = Vector3.new(f.X, 0, f.Z)
+	dir = dir.Magnitude > 0.05 and dir.Unit or Vector3.new(0, 0, 1)
+	setPossession(nil)
+	lastKicker = fromModel
+	expectedReceiver = fromModel -- run onto your own flick
+	ball.AssemblyLinearVelocity = dir * 26 + Vector3.yAxis * 52
+	ignorePickupUntil = os.clock() + 0.45 -- can't instantly re-grab; chase it down
+	AudioService.kick(0.45)
+	return true
 end
 
 local function applyLooseDrag(dt: number)

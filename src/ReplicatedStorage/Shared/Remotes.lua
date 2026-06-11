@@ -19,6 +19,7 @@ Remotes.RequestTackle = "RequestTackle"              -- attempt a steal in front
 Remotes.RequestNutmeg = "RequestNutmeg"              -- poke the ball through a close defender
 Remotes.SetSprint = "SetSprint"                      -- on: boolean (hold to sprint)
 Remotes.StartTournament = "StartTournament"          -- nationName: begin a Nutmeg Trophy run
+Remotes.RequestSkill = "RequestSkill"                -- skillId: perform an unlocked skill move
 
 -- server -> client
 Remotes.MatchState = "MatchState"               -- full snapshot (phase, scores, time, your team/role)
@@ -27,6 +28,7 @@ Remotes.GoalScored = "GoalScored"               -- { team = "Red"|"Blue", scorer
 Remotes.StaminaUpdate = "StaminaUpdate"         -- value: number 0..1 (this player)
 Remotes.PossessionChanged = "PossessionChanged" -- userId: number (0 = loose ball / bot)
 Remotes.Nutmeg = "Nutmeg"                       -- { name = string, byUserId = number }
+Remotes.ProgressionSync = "ProgressionSync"     -- { xp, level, xpInto, xpNeed, quests, streak }
 Remotes.Toast = "Toast"                         -- text: string (small friendly message)
 
 local ALL_EVENTS = {
@@ -38,6 +40,8 @@ local ALL_EVENTS = {
 	Remotes.RequestNutmeg,
 	Remotes.SetSprint,
 	Remotes.StartTournament,
+	Remotes.RequestSkill,
+	Remotes.ProgressionSync,
 	Remotes.MatchState,
 	Remotes.Countdown,
 	Remotes.GoalScored,
