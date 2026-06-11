@@ -23,6 +23,7 @@ local BotAnimationService = require(script.Parent.BotAnimationService)
 local AIService = require(script.Parent.AIService)
 local RefereeService = require(script.Parent.RefereeService)
 local MatchService = require(script.Parent.MatchService)
+local TournamentService = require(script.Parent.TournamentService)
 
 -- 3) Initialize, in dependency order.
 PlayerDataService.init() -- leaderstats + persistence on join/leave
@@ -35,7 +36,12 @@ BallService.init(world)            -- spawn the ball + possession loop
 BotAnimationService.init()         -- animates bot rigs (humans animate themselves)
 AIService.init()                   -- bot decision loop (idle until a match is active)
 RefereeService.init()              -- touchline assistant referees (cosmetic)
+TournamentService.init()           -- The Nutmeg Trophy (knockout bracket)
 MatchService.init(world)           -- match state machine + continuous match loop
+
+-- the tournament rides the match loop through these two hooks
+MatchService.onMatchSetup = TournamentService.beforeMatch
+MatchService.onMatchFinished = TournamentService.afterMatch
 
 -- 4) Cross-service hooks + client input intents. The server validates everything.
 local STA = GameConfig.Stamina
@@ -112,6 +118,12 @@ end)
 Remotes.get(Remotes.SelectTeam).OnServerEvent:Connect(function(player, teamName)
 	if type(teamName) == "string" then
 		MatchService.selectTeam(player, teamName)
+	end
+end)
+
+Remotes.get(Remotes.StartTournament).OnServerEvent:Connect(function(player, nationName)
+	if type(nationName) == "string" then
+		TournamentService.start(player, nationName)
 	end
 end)
 

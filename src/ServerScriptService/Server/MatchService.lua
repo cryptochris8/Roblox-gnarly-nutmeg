@@ -30,7 +30,16 @@ local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
 
 local MatchService = {}
 
+-- Set by Main: called during new-match setup (the tournament paints nation
+-- identities here) and once per finished match with the winning team name.
+MatchService.onMatchSetup = nil :: (() -> ())?
+MatchService.onMatchFinished = nil :: ((winnerTeam: string?) -> ())?
+-- Tournament presentation, broadcast in every snapshot when set.
+MatchService.roundLabel = nil :: string?
+MatchService.board = nil :: { string }?
+
 local state = "Waiting"
+local abortRequested = false
 local scores = { Red = 0, Blue = 0 }
 local half = 0
 local timeRemaining = 0
@@ -50,15 +59,23 @@ local goalEvent: RemoteEvent
 local toastEvent: RemoteEvent
 
 local function snapshot()
+	local redInfo = TeamService.info("Red")
+	local blueInfo = TeamService.info("Blue")
 	local snap = {
 		phase = state,
 		red = scores.Red,
 		blue = scores.Blue,
+		redName = redInfo.displayName,
+		blueName = blueInfo.displayName,
+		redColor = redInfo.color,
+		blueColor = blueInfo.color,
 		half = half,
 		halves = GameConfig.Halves,
 		timeLeft = math.ceil(timeRemaining),
 		playersPerTeam = TeamService.teamSize(),
 		result = (state == "Finished") and resultText or nil,
+		roundLabel = MatchService.roundLabel,
+		board = MatchService.board,
 	}
 	return snap
 end
@@ -97,17 +114,17 @@ local function computeResult()
 	if r == b and shootoutWinner then
 		resultText = string.format(
 			"%s win it ON PENALTIES! Shootout %d : %d",
-			shootoutWinner,
+			TeamService.info(shootoutWinner :: string).displayName,
 			math.max(shootoutTally.Red, shootoutTally.Blue),
 			math.min(shootoutTally.Red, shootoutTally.Blue)
 		)
 	elseif r == b then
 		resultText = string.format("Full time — %d : %d. It's a draw!", r, b)
 	elseif goldenWinner then
-		resultText = string.format("GOLDEN GOAL! %s win %d : %d!", goldenWinner, math.max(r, b), math.min(r, b))
+		resultText = string.format("GOLDEN GOAL! %s win %d : %d!", TeamService.info(goldenWinner :: string).displayName, math.max(r, b), math.min(r, b))
 	else
 		local winner = (r > b) and "Red" or "Blue"
-		resultText = string.format("Full time — %s win %d : %d!", winner, math.max(r, b), math.min(r, b))
+		resultText = string.format("Full time — %s win %d : %d!", TeamService.info(winner).displayName, math.max(r, b), math.min(r, b))
 	end
 end
 
@@ -202,7 +219,13 @@ local function onGoal(scoreTeam: string)
 	PlayerService.freezeAll(true)
 	BallService.stop()
 	if goalEvent then
-		goalEvent:FireAllClients({ team = scoreTeam, red = scores.Red, blue = scores.Blue, scorer = scorerName })
+		goalEvent:FireAllClients({
+			team = scoreTeam,
+			teamName = TeamService.info(scoreTeam).displayName,
+			red = scores.Red,
+			blue = scores.Blue,
+			scorer = scorerName,
+		})
 	end
 	AudioService.goal()
 	pcall(celebrate, scoreTeam)
@@ -461,7 +484,7 @@ local function playHalf(h: number)
 		while timeRemaining > 0 do
 			task.wait(0.2)
 		end
-		if stoppageAdded then
+		if stoppageAdded or abortRequested then
 			break
 		end
 		-- authentic drama: random added time, once per half
@@ -485,6 +508,7 @@ local function runMatchLoop()
 	while true do
 		-- New match setup
 		state = "Waiting"
+		abortRequested = false
 		scores.Red, scores.Blue = 0, 0
 		half = 0
 		timeRemaining = 0
@@ -493,6 +517,10 @@ local function runMatchLoop()
 		goldenWinner = nil
 		shootoutWinner = nil
 		shootoutTally = { Red = 0, Blue = 0 }
+		local setupHook = MatchService.onMatchSetup
+		if setupHook then
+			pcall(setupHook) -- tournament paints nation identities before kits spawn
+		end
 		for _, plr in ipairs(Players:GetPlayers()) do
 			ensureAssigned(plr)
 		end
@@ -517,6 +545,9 @@ local function runMatchLoop()
 
 		for h = 1, GameConfig.Halves do
 			playHalf(h)
+			if abortRequested then
+				break
+			end
 			if h < GameConfig.Halves then
 				state = "HalfTime"
 				broadcastNow()
@@ -528,7 +559,7 @@ local function runMatchLoop()
 		end
 
 		-- A tied final goes to sudden-death GOLDEN GOAL…
-		if scores.Red == scores.Blue then
+		if scores.Red == scores.Blue and not abortRequested then
 			goldenGoal = true
 			if toastEvent then
 				toastEvent:FireAllClients("⚡ GOLDEN GOAL — first goal wins!")
@@ -539,7 +570,7 @@ local function runMatchLoop()
 		end
 
 		-- …and if STILL tied, the drama everyone came for: penalties.
-		if scores.Red == scores.Blue then
+		if scores.Red == scores.Blue and not abortRequested then
 			runShootout()
 		end
 
@@ -563,9 +594,28 @@ local function runMatchLoop()
 		if toastEvent then
 			toastEvent:FireAllClients(resultText)
 		end
+		-- hand the result to the tournament (if one is running)
+		local finishedHook = MatchService.onMatchFinished
+		if finishedHook then
+			local winner: string? = nil
+			if scores.Red ~= scores.Blue then
+				winner = (scores.Red > scores.Blue) and "Red" or "Blue"
+			elseif shootoutWinner then
+				winner = shootoutWinner
+			end
+			pcall(finishedHook, winner)
+			broadcastNow() -- the hook may have updated the board
+		end
 		task.wait(GameConfig.MatchEndScoreboardSeconds)
 		AIService.clear()
 	end
+end
+
+-- Wrap up the current exhibition quickly (used when a tournament starts so the
+-- bracket isn't stuck behind a full match). No effect on tournament matches.
+function MatchService.abortMatch()
+	abortRequested = true
+	timeRemaining = 0
 end
 
 -- A human chooses a team (applied immediately only between matches).

@@ -21,6 +21,7 @@ export type TeamName = string
 
 export type TeamInfo = {
 	name: TeamName,
+	displayName: string, -- what the scoreboard calls this side ("RED" or a nation)
 	ownGoalZ: number,   -- the goal line this team DEFENDS (along Z)
 	attackDir: number,  -- +1 attacks toward +Z, -1 toward -Z
 	opponent: TeamName,
@@ -28,20 +29,42 @@ export type TeamInfo = {
 	brick: BrickColor,
 }
 
+local DEFAULTS = {
+	Blue = { displayName = "BLUE", color = Color3.fromRGB(70, 110, 225) },
+	Red = { displayName = "RED", color = Color3.fromRGB(225, 70, 70) },
+}
+
+local teamObjects: { [string]: Team } = {}
+
 local INFO: { [string]: TeamInfo } = {
 	Blue = {
-		name = "Blue", ownGoalZ = FIELD.MinZ, attackDir = 1, opponent = "Red",
+		name = "Blue", displayName = "BLUE", ownGoalZ = FIELD.MinZ, attackDir = 1, opponent = "Red",
 		color = Color3.fromRGB(70, 110, 225), brick = BrickColor.new("Bright blue"),
 	},
 	Red = {
-		name = "Red", ownGoalZ = FIELD.MaxZ, attackDir = -1, opponent = "Blue",
+		name = "Red", displayName = "RED", ownGoalZ = FIELD.MaxZ, attackDir = -1, opponent = "Blue",
 		color = Color3.fromRGB(225, 70, 70), brick = BrickColor.new("Bright red"),
 	},
 }
 
-TeamService.Names = { "Blue", "Red" }
+-- Paint a tournament identity (nation name + kit colour) onto a side. Kits,
+-- highlights, and confetti all read INFO.color at spawn/use, so the next
+-- kickoff dresses everyone correctly. Pass nil to restore RED/BLUE defaults.
+function TeamService.setIdentity(team: TeamName, displayName: string?, color: Color3?)
+	local info = INFO[team]
+	if not info then
+		return
+	end
+	info.displayName = displayName or DEFAULTS[team].displayName
+	info.color = color or DEFAULTS[team].color
+	info.brick = BrickColor.new(info.color) -- nearest brick for the Teams chip
+	local teamObj = teamObjects[team]
+	if teamObj then
+		teamObj.TeamColor = info.brick
+	end
+end
 
-local teamObjects: { [string]: Team } = {}
+TeamService.Names = { "Blue", "Red" }
 
 type Assignment = { team: TeamName, role: Roles.RoleKey }
 local assignments: { [Player]: Assignment } = {}

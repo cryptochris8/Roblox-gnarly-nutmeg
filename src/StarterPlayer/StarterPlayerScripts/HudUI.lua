@@ -13,6 +13,7 @@ local HudUI = {}
 local gui
 local scoreLabel, timerLabel, phaseLabel
 local scoreScale
+local boardFrame, boardLabel
 local staminaFill
 local chargeHolder, chargeFill
 local countdownLabel
@@ -58,9 +59,10 @@ function HudUI.mount(playerGui)
 		RichText = true,
 		Font = UiTheme.Header,
 		TextSize = 30,
+		TextScaled = true, -- nation names can be long (NETHERLANDS vs ARGENTINA)
 		TextColor3 = C.Panel,
-		Position = UDim2.new(0, 0, 0, 8),
-		Size = UDim2.new(1, 0, 0, 38),
+		Position = UDim2.new(0, 12, 0, 8),
+		Size = UDim2.new(1, -24, 0, 38),
 		Text = "RED  0 : 0  BLUE",
 		Parent = panel,
 	})
@@ -189,6 +191,31 @@ function HudUI.mount(playerGui)
 	})
 	UiTheme.stroke(C.Ink, 3, goalLabel)
 
+	-- Tournament board (bracket results between matches)
+	boardFrame = UiTheme.make("Frame", {
+		Name = "TournamentBoard",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -14, 0, 110),
+		Size = UDim2.fromOffset(300, 250),
+		BackgroundColor3 = C.PanelDark,
+		BackgroundTransparency = 0.12,
+		Visible = false,
+		Parent = gui,
+	})
+	UiTheme.corner(14, boardFrame)
+	boardLabel = UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = 14,
+		TextColor3 = C.Panel,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Position = UDim2.fromOffset(14, 10),
+		Size = UDim2.new(1, -28, 1, -20),
+		Text = "",
+		Parent = boardFrame,
+	})
+
 	-- NUTMEG! splash (a quick flashy stamp when anyone pulls one off)
 	megLabel = UiTheme.make("TextLabel", {
 		Name = "NutmegSplash",
@@ -256,14 +283,33 @@ local PHASE_TEXT = {
 	Finished = "Full Time",
 }
 
+-- lift dark kit colours so they stay readable on the dark scoreboard
+local function vivid(c)
+	return Color3.new(
+		c.R + (1 - c.R) * 0.35,
+		c.G + (1 - c.G) * 0.35,
+		c.B + (1 - c.B) * 0.35
+	)
+end
+
+local function rgbTag(c)
+	return string.format("rgb(%d,%d,%d)", math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
+end
+
 function HudUI.updateMatch(snap)
 	if not gui then
 		return
 	end
+	local redName = snap.redName or "RED"
+	local blueName = snap.blueName or "BLUE"
+	local redC = vivid(snap.redColor or C.Red)
+	local blueC = vivid(snap.blueColor or C.Blue)
 	scoreLabel.Text = string.format(
-		'<font color="rgb(225,70,70)">RED</font>  %d : %d  <font color="rgb(70,110,225)">BLUE</font>',
+		'<font color="%s">%s</font>  %d : %d  <font color="%s">%s</font>',
+		rgbTag(redC), redName,
 		snap.red or 0,
-		snap.blue or 0
+		snap.blue or 0,
+		rgbTag(blueC), blueName
 	)
 	local phase = snap.phase or "Waiting"
 	local text = PHASE_TEXT[phase] or phase
@@ -274,8 +320,23 @@ function HudUI.updateMatch(snap)
 			text = (snap.half == 2) and "2nd Half" or "1st Half"
 		end
 	end
+	if snap.roundLabel and (phase == "Playing" or phase == "Countdown") then
+		text = snap.roundLabel .. " — " .. text
+	end
 	phaseLabel.Text = text
 	timerLabel.Text = fmtClock(snap.timeLeft or 0)
+
+	-- the tournament board shows between phases of play
+	if boardFrame then
+		local lines = snap.board
+		local quietPhase = phase == "Waiting" or phase == "Finished" or phase == "HalfTime"
+		if lines and #lines > 0 and quietPhase then
+			boardLabel.Text = table.concat(lines, "\n")
+			boardFrame.Visible = true
+		else
+			boardFrame.Visible = false
+		end
+	end
 
 	if phase == "Finished" and snap.result then
 		resultLabel.Text = snap.result
@@ -308,7 +369,7 @@ function HudUI.goal(info)
 	end
 	local team = info and info.team or ""
 	goalFrame.BackgroundColor3 = (team == "Red") and C.Red or C.Blue
-	goalLabel.Text = string.upper(team) .. " GOAL!"
+	goalLabel.Text = tostring(info and info.teamName or string.upper(team)) .. " GOAL!"
 	if info and info.scorer then
 		HudUI.toast("⚽ " .. tostring(info.scorer) .. " scores!")
 	end

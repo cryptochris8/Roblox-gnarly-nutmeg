@@ -18,6 +18,7 @@ Remotes.RequestShoot = "RequestShoot"                -- charge: number 0..1 (rel
 Remotes.RequestTackle = "RequestTackle"              -- attempt a steal in front of me
 Remotes.RequestNutmeg = "RequestNutmeg"              -- poke the ball through a close defender
 Remotes.SetSprint = "SetSprint"                      -- on: boolean (hold to sprint)
+Remotes.StartTournament = "StartTournament"          -- nationName: begin a Nutmeg Trophy run
 
 -- server -> client
 Remotes.MatchState = "MatchState"               -- full snapshot (phase, scores, time, your team/role)
@@ -36,6 +37,7 @@ local ALL_EVENTS = {
 	Remotes.RequestTackle,
 	Remotes.RequestNutmeg,
 	Remotes.SetSprint,
+	Remotes.StartTournament,
 	Remotes.MatchState,
 	Remotes.Countdown,
 	Remotes.GoalScored,

@@ -356,7 +356,7 @@ end
 local function buildHoardings(parent: Instance)
 	pcall(function()
 		-- (no FIFA/"World Cup" trademarks on anything player-facing)
-		local texts = { "GNARLY NUTMEG", "ATHLETE DOMAINS", "NUTMEG CUP 2026", "⚽ NUTMEG!" }
+		local texts = { "GNARLY NUTMEG", "ATHLETE DOMAINS", "THE NUTMEG TROPHY", "⚽ NUTMEG!" }
 		local navy = Color3.fromRGB(18, 24, 48)
 		local boardH = 1.6
 		local function board(pos: Vector3, faceToward: Vector3, segLen: number, textIndex: number)
