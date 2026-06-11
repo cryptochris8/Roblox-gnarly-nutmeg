@@ -23,6 +23,7 @@ local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 local AIService = require(script.Parent.AIService)
 local RefereeService = require(script.Parent.RefereeService)
+local PowerupService = require(script.Parent.PowerupService)
 local ProgressionService = require(script.Parent.ProgressionService)
 local MatchService = require(script.Parent.MatchService)
 local TournamentService = require(script.Parent.TournamentService)
@@ -38,6 +39,7 @@ BallService.init(world)            -- spawn the ball + possession loop
 BotAnimationService.init()         -- animates bot rigs (humans animate themselves)
 AIService.init()                   -- bot decision loop (idle until a match is active)
 RefereeService.init()              -- touchline assistant referees (cosmetic)
+PowerupService.init()              -- arcade power-up orbs (GameConfig.Arcade)
 ProgressionService.init()          -- XP / levels / daily quests / login streak
 TournamentService.init()           -- The Nutmeg Trophy (knockout bracket)
 MatchService.init(world)           -- match state machine + continuous match loop

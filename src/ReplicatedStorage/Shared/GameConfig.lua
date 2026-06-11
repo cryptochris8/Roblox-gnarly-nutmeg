@@ -126,6 +126,21 @@ GameConfig.Vfx = {
 	ShotTrailMinSpeed = 100, -- a loose ball faster than this leaves a streak (shots, not passes)
 }
 
+-- ---- Arcade power-ups (Phase 3) ----------------------------------------------
+-- Floating pickups on the pitch — run over one to grab it. Family-friendly
+-- adaptations of the Hytopia arcade set (no damage; clean sports effects only).
+GameConfig.Arcade = {
+	Enabled = true,          -- flip false for a pure-FIFA pitch
+	RespawnSeconds = 15,     -- per spawn spot, after a pickup
+	SpeedMultiplier = 1.4,   -- ⚡ Speed Boost…
+	SpeedSeconds = 6,
+	MegaKickMultiplier = 1.5, -- 💥 Mega Kick: shot power while active
+	MegaKickSeconds = 8,
+	FreezeRadius = 24,       -- ❄ Freeze Blast: opponents this close are frozen
+	FreezeSeconds = 2.5,
+	ShieldSeconds = 8,       -- 🛡 Shield: immune to tackles, stuns and freezes
+}
+
 -- ---- Player movement & stamina (faster, to suit the bigger field) ---------
 GameConfig.Player = {
 	WalkSpeed = 22,

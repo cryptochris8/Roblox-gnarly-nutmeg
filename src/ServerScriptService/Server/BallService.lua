@@ -115,7 +115,11 @@ local function isStunnedModel(model: Model): boolean
 end
 BallService.isStunnedModel = isStunnedModel
 
-local function applyStun(model: Model, seconds: number)
+local function applyStun(model: Model, seconds: number): boolean
+	-- a Shield power-up shrugs off stuns, stumbles and freezes
+	if ((model:GetAttribute("ShieldUntil") :: number?) or 0) > os.clock() then
+		return false
+	end
 	local uid = (model:GetAttribute("UserId") :: number?) or 0
 	local plr = uid ~= 0 and Players:GetPlayerByUserId(uid) or nil
 	if plr and plr.Character == model then
@@ -123,6 +127,12 @@ local function applyStun(model: Model, seconds: number)
 	else
 		model:SetAttribute("StunUntil", os.clock() + seconds)
 	end
+	return true
+end
+
+-- Public stun (PowerupService's Freeze Blast). Returns false if shielded.
+function BallService.stunModel(model: Model, seconds: number): boolean
+	return applyStun(model, seconds)
 end
 
 -- ---- possession ------------------------------------------------------------
@@ -349,6 +359,10 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	-- distance shaping (ported intent from the Hytopia original)
 	local distToGoal = Vector3.new(goal.X - ball.Position.X, 0, goal.Z - ball.Position.Z).Magnitude
 	local power = KICK.ShotSpeedMin + (KICK.ShotSpeedMax - KICK.ShotSpeedMin) * charge
+	-- 💥 Mega Kick power-up: rockets while it lasts
+	if ((fromModel:GetAttribute("MegaKickUntil") :: number?) or 0) > os.clock() then
+		power *= GameConfig.Arcade.MegaKickMultiplier
+	end
 	local arc = KICK.ShotArc
 	if distToGoal < 20 then
 		power *= 1.1 -- close-range finesse pops
@@ -444,8 +458,9 @@ function BallService.tackleAttempt(byModel: Model): boolean
 	if byTeam == carrierTeam then
 		return false
 	end
-	-- a spinning carrier (roulette) can't be tackled
-	if ((carrier:GetAttribute("SpinImmuneUntil") :: number?) or 0) > os.clock() then
+	-- a spinning (roulette) or shielded (power-up) carrier can't be tackled
+	if ((carrier:GetAttribute("SpinImmuneUntil") :: number?) or 0) > os.clock()
+		or ((carrier:GetAttribute("ShieldUntil") :: number?) or 0) > os.clock() then
 		return false
 	end
 	local byRoot = byModel:FindFirstChild("HumanoidRootPart") :: BasePart?
