@@ -494,7 +494,10 @@ function HudUI.progression(data)
 	TweenService:Create(xpFill, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = UDim2.new(frac, 0, 1, 0),
 	}):Play()
-	xpText.Text = ("LV %d   %d / %d XP"):format(data.level or 1, into, need)
+	local leagueName = data.league and data.league.name or nil
+	xpText.Text = leagueName
+		and ("%s  •  LV %d   %d / %d XP"):format(leagueName, data.level or 1, into, need)
+		or ("LV %d   %d / %d XP"):format(data.level or 1, into, need)
 	if lastLevel and (data.level or 1) > lastLevel then
 		levelLabel.Text = ("⬆ LEVEL %d!"):format(data.level)
 		levelLabel.Rotation = -6

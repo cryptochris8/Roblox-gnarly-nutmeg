@@ -15,6 +15,7 @@ local QuestUI = {}
 
 local panel
 local streakLabel
+local leagueLabel
 local rows = {}
 local skillLabels = {}
 local lastData = nil
@@ -43,7 +44,7 @@ function QuestUI.mount(playerGui)
 	panel = UiTheme.make("Frame", {
 		Name = "QuestPanel",
 		Position = UDim2.fromOffset(18, 218),
-		Size = UDim2.fromOffset(320, 332),
+		Size = UDim2.fromOffset(320, 354),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.06,
 		Visible = false,
@@ -63,8 +64,20 @@ function QuestUI.mount(playerGui)
 		Parent = panel,
 	})
 
+	leagueLabel = UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 15,
+		TextColor3 = Color3.fromRGB(245, 196, 60),
+		Text = "🏅 League: —",
+		Position = UDim2.fromOffset(16, 32),
+		Size = UDim2.new(1, -32, 0, 20),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	})
+
 	for i = 1, 3 do
-		local y = 40 + (i - 1) * 64
+		local y = 62 + (i - 1) * 64
 		local rowText = UiTheme.make("TextLabel", {
 			BackgroundTransparency = 1,
 			Font = UiTheme.Body,
@@ -123,7 +136,7 @@ function QuestUI.mount(playerGui)
 		TextSize = 14,
 		TextColor3 = C.Sub,
 		Text = "SKILL MOVES",
-		Position = UDim2.fromOffset(16, 234),
+		Position = UDim2.fromOffset(16, 256),
 		Size = UDim2.new(1, -32, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
@@ -135,7 +148,7 @@ function QuestUI.mount(playerGui)
 			TextSize = 14,
 			TextColor3 = C.Sub,
 			Text = ("🔒 %s — Level %d  [%s]"):format(s.name, s.unlockLevel, s.key.Name),
-			Position = UDim2.fromOffset(16, 252 + (i - 1) * 22),
+			Position = UDim2.fromOffset(16, 274 + (i - 1) * 22),
 			Size = UDim2.new(1, -32, 0, 20),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = panel,
@@ -156,6 +169,12 @@ function QuestUI.progression(data)
 		return
 	end
 	streakLabel.Text = ("🔥 Login streak: Day %d"):format(tonumber(data.streak) or 0)
+	local lg = data.league
+	if lg and leagueLabel then
+		local needW = math.max((lg.promoteAt or 3) - (lg.wins or 0), 0)
+		leagueLabel.Text = ("🏅 League: %s — %d more win%s to climb"):format(
+			tostring(lg.name), needW, needW == 1 and "" or "s")
+	end
 	for i = 1, 3 do
 		local q = data.quests and data.quests[i]
 		local row = rows[i]

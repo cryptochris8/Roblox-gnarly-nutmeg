@@ -23,6 +23,7 @@ local Roles = require(Shared:WaitForChild("Roles"))
 local TeamService = require(script.Parent.TeamService)
 local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
+local DifficultyService = require(script.Parent.DifficultyService)
 
 local TAG = "Footballer"
 local SHOOT_RANGE = 48 -- bots work it closer before shooting (6v6 keepers eat 55-out efforts)
@@ -175,7 +176,8 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 
 	local hum = bot:FindFirstChildOfClass("Humanoid")
 	if hum then
-		hum.WalkSpeed = def.isKeeper and (GameConfig.Player.WalkSpeed + 4) or GameConfig.Player.WalkSpeed
+		local base = def.isKeeper and (GameConfig.Player.WalkSpeed + 4) or GameConfig.Player.WalkSpeed
+		hum.WalkSpeed = base * DifficultyService.get().walkMult
 		hum.AutoRotate = true
 		hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None -- no floating name tags
 		-- the Animator must exist BEFORE the model replicates for server-played
@@ -300,7 +302,7 @@ local function decideBot(entry: BotEntry)
 		local dGoal = hdist(myPos, targetGoal)
 		if dGoal < SHOOT_RANGE then
 			-- cap at the sweet spot: bots don't balloon overcharged shots
-			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), 5)
+			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), DifficultyService.get().botShotSpread)
 			return
 		end
 		local pressured = false
@@ -473,7 +475,7 @@ function AIService.init()
 		end
 		accum += dt
 		keeperAccum += dt
-		local runOutfield = accum >= GameConfig.AiTickSeconds
+		local runOutfield = accum >= DifficultyService.get().aiTick
 		local runKeeper = keeperAccum >= 0.12 -- keepers react ~3x faster than outfielders
 		if runOutfield then
 			accum = 0

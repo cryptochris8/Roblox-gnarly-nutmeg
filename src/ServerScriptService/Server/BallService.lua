@@ -24,6 +24,7 @@ local WorldService = require(script.Parent.WorldService)
 local TeamService = require(script.Parent.TeamService)
 local PlayerService = require(script.Parent.PlayerService)
 local AudioService = require(script.Parent.AudioService)
+local DifficultyService = require(script.Parent.DifficultyService)
 
 local FIELD = GameConfig.Field
 local BALL = GameConfig.Ball
@@ -768,7 +769,11 @@ local function tryPickup()
 			-- keeper — bystanders can't vacuum-catch a driven pass mid-flight
 			if isKeeper or isReceiver or ballSpeed <= BALL.MaxClaimSpeed then
 				-- keepers reach further and claim airborne shots up to the crossbar
+				-- (reach scales with the difficulty league — only for BOT keepers)
 				local reach = isKeeper and BALL.KeeperReach or BALL.PickupRadius
+				if isKeeper and f.isBot then
+					reach *= DifficultyService.get().keeperReachMult
+				end
 				if isReceiver then
 					reach *= KICK.ReceptionAssist -- the pass sticks to its target
 				end

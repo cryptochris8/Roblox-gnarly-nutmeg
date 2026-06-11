@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Skills = require(Shared:WaitForChild("Skills"))
+local Leagues = require(Shared:WaitForChild("Leagues"))
 
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
@@ -99,6 +100,9 @@ local function progression(player: Player): any?
 	if type(prog.Streak) ~= "table" then
 		prog.Streak = { lastDay = 0, count = 0 }
 	end
+	if type(prog.League) ~= "table" then
+		prog.League = { tier = 1, wins = 0, losses = 0 }
+	end
 	-- a new day resets quest progress
 	if prog.Quests.day ~= utcDay() then
 		prog.Quests = { day = utcDay(), progress = {}, claimed = {} }
@@ -121,6 +125,42 @@ function ProgressionService.getLevel(player: Player): number
 	end
 	local level = levelFromTotalXP(prog.XP)
 	return level
+end
+
+function ProgressionService.getLeagueTier(player: Player): number
+	local prog = progression(player)
+	if not prog then
+		return 1
+	end
+	return math.clamp(tonumber(prog.League.tier) or 1, 1, Leagues.MaxTier)
+end
+
+-- A match result on the ladder: 3 wins climbs a league, 3 losses drops one.
+function ProgressionService.noteLeagueResult(player: Player, won: boolean)
+	local prog = progression(player)
+	if not prog then
+		return
+	end
+	local lg = prog.League
+	if won then
+		lg.wins = (tonumber(lg.wins) or 0) + 1
+		if lg.wins >= Leagues.PromoteWins and lg.tier < Leagues.MaxTier then
+			lg.tier += 1
+			lg.wins = 0
+			lg.losses = 0
+			toastTo(player, ("🏅 PROMOTED! Welcome to the %s league!"):format(Leagues.get(lg.tier).name))
+			ProgressionService.addXP(player, 100, "promotion")
+		end
+	else
+		lg.losses = (tonumber(lg.losses) or 0) + 1
+		if lg.losses >= Leagues.RelegateLosses and lg.tier > 1 then
+			lg.tier -= 1
+			lg.wins = 0
+			lg.losses = 0
+			toastTo(player, ("Moved down to %s — go win it back!"):format(Leagues.get(lg.tier).name))
+		end
+	end
+	ProgressionService.sync(player)
 end
 
 -- Queue a sync to the owning client (coalesces bursts).
@@ -150,6 +190,7 @@ function ProgressionService.sync(player: Player)
 				done = prog.Quests.claimed[q.id] == true,
 			}
 		end
+		local tier = math.clamp(tonumber(prog.League.tier) or 1, 1, Leagues.MaxTier)
 		;(syncEvent :: RemoteEvent):FireClient(player, {
 			xp = prog.XP,
 			level = level,
@@ -157,6 +198,14 @@ function ProgressionService.sync(player: Player)
 			xpNeed = need,
 			quests = quests,
 			streak = prog.Streak.count,
+			league = {
+				tier = tier,
+				name = Leagues.get(tier).name,
+				wins = tonumber(prog.League.wins) or 0,
+				losses = tonumber(prog.League.losses) or 0,
+				promoteAt = Leagues.PromoteWins,
+				relegateAt = Leagues.RelegateLosses,
+			},
 		})
 		refreshLevelStat(player, level)
 	end)

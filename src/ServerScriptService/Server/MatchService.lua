@@ -25,6 +25,7 @@ local PlayerDataService = require(script.Parent.PlayerDataService)
 local AudioService = require(script.Parent.AudioService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 local ProgressionService = require(script.Parent.ProgressionService)
+local DifficultyService = require(script.Parent.DifficultyService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
@@ -523,6 +524,14 @@ local function runMatchLoop()
 		if setupHook then
 			pcall(setupHook) -- tournament paints nation identities before kits spawn
 		end
+		-- bot difficulty: the highest-league human present sets the bar
+		local tier = 1
+		for _, plr in ipairs(Players:GetPlayers()) do
+			tier = math.max(tier, ProgressionService.getLeagueTier(plr))
+		end
+		if DifficultyService.setTier(tier) and toastEvent then
+			toastEvent:FireAllClients(("🏅 Bot difficulty: %s"):format(DifficultyService.get().name))
+		end
 		for _, plr in ipairs(Players:GetPlayers()) do
 			ensureAssigned(plr)
 		end
@@ -592,6 +601,9 @@ local function runMatchLoop()
 				ProgressionService.note(plr, "matches")
 				if outcome == "win" then
 					ProgressionService.note(plr, "wins")
+				end
+				if outcome ~= "draw" then
+					ProgressionService.noteLeagueResult(plr, outcome == "win")
 				end
 			end
 		end
