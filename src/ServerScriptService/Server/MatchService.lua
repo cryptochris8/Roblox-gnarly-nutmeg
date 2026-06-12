@@ -26,6 +26,7 @@ local AudioService = require(script.Parent.AudioService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 local ProgressionService = require(script.Parent.ProgressionService)
 local DifficultyService = require(script.Parent.DifficultyService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
@@ -214,6 +215,7 @@ local function onGoal(scoreTeam: string)
 			local scorer = Players:GetPlayerByUserId(scorerUid)
 			if scorer then
 				PlayerDataService.addGoal(scorer)
+				LeaderboardService.addGoal(scorer)
 				ProgressionService.note(scorer, "goals")
 				scorerName = scorer.DisplayName
 			end
@@ -508,6 +510,8 @@ local function playHalf(h: number)
 	while true do
 		while timeRemaining > 0 do
 			task.wait(0.2)
+			-- the crowd leans in over the last 30 seconds of a half
+			AudioService.tension(timeRemaining < 30 and (1 - timeRemaining / 30) or 0)
 		end
 		if stoppageAdded or abortRequested then
 			break
@@ -625,12 +629,36 @@ local function runMatchLoop()
 				ProgressionService.note(plr, "matches")
 				if outcome == "win" then
 					ProgressionService.note(plr, "wins")
+					LeaderboardService.addWin(plr)
 				end
 				if outcome ~= "draw" then
 					ProgressionService.noteLeagueResult(plr, outcome == "win")
 				end
 			end
 		end
+		-- MVP spotlight: the match's top human scorer gets a glow and a call
+		pcall(function()
+			local bestName, bestGoals = nil, 0
+			for name, n in pairs(scorerTally) do
+				if n > bestGoals then
+					bestName, bestGoals = name, n
+				end
+			end
+			if bestName and bestGoals >= 1 and toastEvent then
+				toastEvent:FireAllClients(("⭐ MVP: %s — %d goal%s!"):format(bestName, bestGoals, bestGoals == 1 and "" or "s"))
+				for _, plr in ipairs(Players:GetPlayers()) do
+					if plr.DisplayName == bestName and plr.Character then
+						local glow = Instance.new("Highlight")
+						glow.FillTransparency = 1
+						glow.OutlineColor = Color3.fromRGB(245, 196, 60)
+						glow.Parent = plr.Character
+						task.delay(7, function()
+							glow:Destroy()
+						end)
+					end
+				end
+			end
+		end)
 		state = "Finished"
 		broadcastNow()
 		if toastEvent then

@@ -110,6 +110,18 @@ function AudioService.ooh()
 	playOneShot("CrowdOoh")
 end
 
+-- Crowd tension: the ambient loop leans in as the clock runs down
+-- (0 = normal murmur, 1 = full final-minute buzz).
+function AudioService.tension(frac: number)
+	pcall(function()
+		local c = crowd
+		if c then
+			c.Volume = CROWD_BASE_VOLUME * (1 + 0.9 * math.clamp(frac, 0, 1))
+			c.PlaybackSpeed = 1 + 0.06 * math.clamp(frac, 0, 1)
+		end
+	end)
+end
+
 -- One commentator line of the given kind. Non-priority lines respect a gap
 -- and never interrupt; priority lines (goal calls, full time) cut in.
 function AudioService.commentary(kind: string, priority: boolean?)

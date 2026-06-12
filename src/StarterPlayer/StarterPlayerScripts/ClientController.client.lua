@@ -64,5 +64,41 @@ Remotes.get(Remotes.Toast).OnClientEvent:Connect(function(text)
 	HudUI.toast(text)
 end)
 
+-- Tell the player their job in plain words whenever it changes.
+local ROLE_CALLOUTS = {
+	goalkeeper = "🧤 You're the GOALKEEPER — guard your net!",
+	striker = "⚽ You're the STRIKER — go score!",
+}
+local lastRole = nil
+local function announceRole()
+	local role = player:GetAttribute("GNRole")
+	if type(role) ~= "string" or role == lastRole then
+		return
+	end
+	lastRole = role
+	HudUI.toast(ROLE_CALLOUTS[role] or ("📣 You're playing " .. role:upper():gsub("-", " ") .. "!"))
+end
+player:GetAttributeChangedSignal("GNRole"):Connect(announceRole)
+task.delay(3, announceRole)
+
+-- First-ever visit: a six-second welcome that explains the whole game.
+local welcomed = false
+Remotes.get(Remotes.ProgressionSync).OnClientEvent:Connect(function(data)
+	if welcomed or not data or not data.career then
+		return
+	end
+	welcomed = true
+	if (tonumber(data.career.matches) or 0) > 0 then
+		return -- they already know the drill
+	end
+	HudUI.toast("👋 Welcome to GNARLY NUTMEG!")
+	task.delay(2.2, function()
+		HudUI.toast("⚽ Score more goals than the other team!")
+	end)
+	task.delay(4.4, function()
+		HudUI.toast("Pass to friends, hold Shoot to power up, have a blast!")
+	end)
+end)
+
 -- We're ready: ask the server for the current match state.
 Remotes.get(Remotes.RequestInitialState):FireServer()

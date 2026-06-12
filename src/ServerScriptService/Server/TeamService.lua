@@ -169,6 +169,8 @@ function TeamService.assignHuman(player: Player, preferred: TeamName?): (TeamNam
 		player.Team = teamObj
 		player.Neutral = false
 	end
+	-- the client reads this to tell the player their job in plain words
+	player:SetAttribute("GNRole", role)
 	return team, role
 end
 
