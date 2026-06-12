@@ -19,7 +19,7 @@ GameConfig.FillWithBots = true         -- bots fill the empty slots on both team
 GameConfig.CountdownSeconds = 3        -- 3-2-1-GO before kickoff
 GameConfig.HalfDurationSeconds = 120   -- 2-minute halves
 GameConfig.Halves = 2
-GameConfig.GoalCelebrationSeconds = 3
+GameConfig.GoalCelebrationSeconds = 6 -- room for the full 4.6s replay dolly + a beat
 GameConfig.MatchEndScoreboardSeconds = 8
 
 -- ---- Pitch geometry (STUDS) -----------------------------------------------

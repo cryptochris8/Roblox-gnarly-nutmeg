@@ -102,11 +102,11 @@ function CameraDirector.goalReplay(info)
 		cam.CFrame = CFrame.lookAt(from, focus)
 		activeTween = TweenService:Create(
 			cam,
-			TweenInfo.new(3.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+			TweenInfo.new(4.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
 			{ CFrame = CFrame.lookAt(to, focus + Vector3.new(0, 2, 0)) }
 		)
 		;(activeTween :: Tween):Play()
-		task.delay(3.4, function()
+		task.delay(4.8, function()
 			-- hand back only if the kickoff flyover hasn't taken over since
 			if mode == "goal" then
 				restore()

@@ -157,6 +157,13 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 		desc.DepthScale = 0.95 + math.random() * 0.08
 		desc.BodyTypeScale = 0.6 + math.random() * 0.3
 		desc.ProportionScale = 0.85 + math.random() * 0.15
+		-- squad hair (free Roblox catalog, each id verified loadable); one in
+		-- six keeps the clean-shaven look
+		local HAIR = { 63690008, 9243992729, 9244021842, 376524487, 2956239660 }
+		local pick = math.random(1, #HAIR + 1)
+		if pick <= #HAIR then
+			desc.HairAccessory = tostring(HAIR[pick])
+		end
 		model = Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 	end)
 	if not ok or not model then

@@ -11,14 +11,17 @@ local RunService = game:GetService("RunService")
 
 local BotAnimationService = {}
 
--- The stock Roblox R15 locomotion set (Roblox-published, free to use).
+-- Locomotion: the adidas Sports pack (Roblox-published) for an athlete's gait —
+-- inner Animation ids extracted from catalog items 18538133604/-50608/-53691
+-- and verified loadable (run 0.73s cycle / idle 3.33 / jump 0.37). The pack's
+-- fall item is restricted (403), so falls keep the stock animation.
 local ANIM_IDS = {
-	idle = "rbxassetid://507766666",
-	run = "rbxassetid://507767714",
-	jump = "rbxassetid://507765000",
+	idle = "rbxassetid://18537376492",
+	run = "rbxassetid://18537384940",
+	jump = "rbxassetid://18537380791",
 	fall = "rbxassetid://507767968",
 }
-local RUN_ANIM_SPEED = 16 -- studs/s the stock run cycle is authored for
+local RUN_ANIM_SPEED = 16 -- studs/s the run cycle is scaled against
 
 type Rig = {
 	hum: Humanoid,
