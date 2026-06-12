@@ -10,7 +10,7 @@ local RobloxBadgeService = game:GetService("BadgeService")
 local BadgeService = {}
 
 local IDS = {
-	FirstGoal = 0,
+	FirstGoal = 4152203081098453,
 	HatTrick = 0,
 	FirstNutmeg = 386665015462925,
 	CupWinner = 1224844358661312,
