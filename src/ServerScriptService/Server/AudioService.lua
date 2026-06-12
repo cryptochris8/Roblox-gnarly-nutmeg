@@ -23,11 +23,30 @@ local IDS = {
 	CrowdOoh = 9120975564,     -- Wrestling Crowd 6 (SFX), reaction sting
 }
 
+-- MATCH COMMENTARY: licensed announcer lines from the Notable Voices and
+-- Apple Hill Studios packs (owned for the Hytopia original), re-uploaded to
+-- this creator account via Open Cloud (tools/audio_pipeline/, manifest in
+-- uploaded.json). One voice, broadcast-style: never talks over itself, and
+-- priority lines (goals, full time) cut whatever else was being said.
+local COMMENTARY_IDS: { [string]: { number } } = {
+	kickoff = { 120845229617056 },  -- "Game Start"
+	goal = { 104462952127702, 79267049967666, 91931519210036 }, -- What A Goal / What A Beauty / Crowd Goes Wild
+	save = { 136618842417043 },     -- "Beautiful Save"
+	nearMiss = { 98312663627363, 95682027071520 }, -- "Near Miss" / "So Close"
+	bigShot = { 91152581781107 },   -- "What A Shot" (was still in review 2026-06-12; plays once approved)
+	onFire = { 132313435848225 },   -- "He's On Fire Now"
+	fullTime = { 136770975225532 }, -- "It's All Over"
+}
+
 local CROWD_BASE_VOLUME = 0.22
+local COMMENTARY_GAP = 4 -- seconds between non-priority lines
 
 local crowd: Sound? = nil
 local oneShots: { [string]: Sound } = {}
 local kickVariants: { Sound } = {}
+local commentaryPools: { [string]: { Sound } } = {}
+local commentaryGapUntil = 0
+local commentarySpeaking: Sound? = nil
 
 local function makeSound(name: string, id: number, volume: number, looped: boolean): Sound
 	local s = Instance.new("Sound")
@@ -69,9 +88,14 @@ function AudioService.kick(power: number)
 end
 
 -- Goal: roar + horn together, and the ambient crowd swells then settles.
-function AudioService.goal()
+-- streak = the scorer's goals this match: 2+ gets the "on fire" call instead.
+function AudioService.goal(streak: number?)
 	playOneShot("GoalRoar")
 	playOneShot("GoalHorn")
+	task.delay(0.55, function()
+		local kind = (streak and streak >= 2 and #(commentaryPools.onFire or {}) > 0) and "onFire" or "goal"
+		AudioService.commentary(kind, true)
+	end)
 	pcall(function()
 		local c = crowd
 		if c then
@@ -86,6 +110,36 @@ function AudioService.ooh()
 	playOneShot("CrowdOoh")
 end
 
+-- One commentator line of the given kind. Non-priority lines respect a gap
+-- and never interrupt; priority lines (goal calls, full time) cut in.
+function AudioService.commentary(kind: string, priority: boolean?)
+	pcall(function()
+		local pool = commentaryPools[kind]
+		if not pool or #pool == 0 then
+			return
+		end
+		local now = os.clock()
+		local speaking = commentarySpeaking
+		if priority then
+			if speaking and speaking.IsPlaying then
+				speaking:Stop()
+			end
+		else
+			if now < commentaryGapUntil then
+				return
+			end
+			if speaking and speaking.IsPlaying then
+				return -- a good commentator finishes the sentence
+			end
+		end
+		local s = pool[math.random(1, #pool)]
+		commentaryGapUntil = now + COMMENTARY_GAP
+		commentarySpeaking = s
+		s.TimePosition = 0
+		s:Play()
+	end)
+end
+
 function AudioService.init()
 	pcall(function()
 		crowd = makeSound("StadiumCrowd", IDS.CrowdLoop, CROWD_BASE_VOLUME, true)
@@ -97,6 +151,13 @@ function AudioService.init()
 		oneShots.CrowdOoh = makeSound("CrowdOoh", IDS.CrowdOoh, 0.5, false)
 		for i, id in ipairs(IDS.Kicks) do
 			kickVariants[i] = makeSound("Kick" .. i, id, 0.5, false)
+		end
+		for kind, ids in pairs(COMMENTARY_IDS) do
+			local pool = {}
+			for i, id in ipairs(ids) do
+				pool[i] = makeSound("Commentary_" .. kind .. i, id, 0.9, false)
+			end
+			commentaryPools[kind] = pool
 		end
 	end)
 end

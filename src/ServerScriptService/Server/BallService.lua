@@ -141,6 +141,7 @@ end
 
 -- a live curling shot: lateral acceleration applied while the ball flies
 local shotCurve: { accel: Vector3, expire: number }? = nil
+local lastShotAt = 0 -- commentary: a dead ball right after a shot = a near miss
 
 local function setPossession(model: Model?)
 	carrier = model
@@ -450,10 +451,14 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 
 	local v = dir * power + Vector3.yAxis * (power * arc)
 	lastKicker = fromModel
+	lastShotAt = os.clock()
 	expectedReceiver = nil
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	AudioService.kick(charge)
+	if fromModel:GetAttribute("IsBot") ~= true and charge >= 0.8 then
+		AudioService.commentary("bigShot") -- the call rides the flight of a thunderbolt
+	end
 	return true
 end
 
@@ -759,6 +764,9 @@ local function checkOutOfBounds()
 		beginRestart("Corner kick", attacker, spot)
 	else
 		-- goal kick from the front of the goal box
+		if os.clock() - lastShotAt < 2.5 then
+			AudioService.commentary("nearMiss") -- a shot just sailed wide/over
+		end
 		local spot = Vector3.new(FIELD.CenterX, y, endZ - (outZ :: number) * (FIELD.Length * 0.052 + 2))
 		beginRestart("Goal kick", defender, spot)
 	end
@@ -855,6 +863,10 @@ local function tryPickup()
 		local completedBy: Model? = nil
 		if nearest.model == expectedReceiver and lastKicker and lastKicker ~= nearest.model then
 			completedBy = lastKicker
+		end
+		-- a keeper smothering a genuinely fast ball is a SAVE worth calling
+		if nearest.role == "goalkeeper" and ballSpeed > 45 then
+			AudioService.commentary("save")
 		end
 		setPossession(nearest.model)
 		if completedBy then

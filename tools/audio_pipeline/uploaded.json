@@ -33,5 +33,20 @@
         "name":  "GN Commentator - So Close",
         "assetId":  "95682027071520",
         "state":  "Approved"
+    },
+    {
+        "name":  "GN Commentator - What A Shot",
+        "assetId":  "91152581781107",
+        "state":  "Reviewing"
+    },
+    {
+        "name":  "GN Commentator - On Fire",
+        "assetId":  "132313435848225",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Commentator - Full Time",
+        "assetId":  "136770975225532",
+        "state":  "Approved"
     }
 ]

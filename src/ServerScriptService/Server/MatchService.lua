@@ -45,6 +45,7 @@ local state = "Waiting"
 local abortRequested = false
 local scores = { Red = 0, Blue = 0 }
 local half = 0
+local scorerTally: { [string]: number } = {} -- goals per scorer this match (commentary "on fire")
 local timeRemaining = 0
 local resultText = ""
 local goldenGoal = false
@@ -220,6 +221,13 @@ local function onGoal(scoreTeam: string)
 			scorerName = "a " .. scoreTeam .. " bot"
 		end
 	end
+	-- streaks only for NAMED humans: every bot on a team shares one scorer
+	-- name, so pooling them would call two different bots "on fire"
+	local streak = 0
+	if scorerName and scorerUid ~= 0 then
+		scorerTally[scorerName] = (scorerTally[scorerName] or 0) + 1
+		streak = scorerTally[scorerName]
+	end
 	if goldenGoal then
 		goldenWinner = scoreTeam
 		timeRemaining = 0 -- sudden death ends the period immediately
@@ -237,7 +245,7 @@ local function onGoal(scoreTeam: string)
 			scorer = scorerName,
 		})
 	end
-	AudioService.goal()
+	AudioService.goal(streak)
 	pcall(celebrate, scoreTeam)
 	broadcastNow()
 
@@ -478,6 +486,9 @@ local function playHalf(h: number)
 		countdownEvent:FireAllClients(0) -- GO!
 	end
 	AudioService.whistle("short")
+	if h == 1 then
+		AudioService.commentary("kickoff")
+	end
 
 	-- Play
 	timeRemaining = goldenGoal and GOLDEN_SECONDS or GameConfig.HalfDurationSeconds
@@ -521,6 +532,7 @@ local function runMatchLoop()
 		abortRequested = false
 		scores.Red, scores.Blue = 0, 0
 		half = 0
+		table.clear(scorerTally)
 		timeRemaining = 0
 		resultText = ""
 		goldenGoal = false
@@ -593,6 +605,7 @@ local function runMatchLoop()
 		end
 
 		-- Full time
+		AudioService.commentary("fullTime", true)
 		computeResult()
 		for _, plr in ipairs(Players:GetPlayers()) do
 			local a = TeamService.getAssignment(plr)
