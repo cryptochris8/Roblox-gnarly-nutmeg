@@ -191,6 +191,20 @@ function ProgressionService.sync(player: Player)
 			}
 		end
 		local tier = math.clamp(tonumber(prog.League.tier) or 1, 1, Leagues.MaxTier)
+		-- career totals ride along so the client can show the trophy cabinet
+		local career = nil
+		local p = PlayerDataService.get(player)
+		if p then
+			career = {
+				goals = p.Goals,
+				wins = p.Wins,
+				draws = p.Draws,
+				losses = p.Losses,
+				matches = p.Matches,
+				nutmegs = p.Nutmegs,
+				trophies = p.Trophies,
+			}
+		end
 		;(syncEvent :: RemoteEvent):FireClient(player, {
 			xp = prog.XP,
 			level = level,
@@ -198,6 +212,7 @@ function ProgressionService.sync(player: Player)
 			xpNeed = need,
 			quests = quests,
 			streak = prog.Streak.count,
+			career = career,
 			league = {
 				tier = tier,
 				name = Leagues.get(tier).name,

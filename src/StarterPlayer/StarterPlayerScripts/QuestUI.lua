@@ -16,6 +16,8 @@ local QuestUI = {}
 local panel
 local streakLabel
 local leagueLabel
+local careerLine1
+local careerLine2
 local rows = {}
 local skillLabels = {}
 local lastData = nil
@@ -41,10 +43,12 @@ function QuestUI.mount(playerGui)
 	})
 	UiTheme.corner(12, toggle)
 
+	-- anchored to the vertical middle so it also fits short phone screens
 	panel = UiTheme.make("Frame", {
 		Name = "QuestPanel",
-		Position = UDim2.fromOffset(18, 218),
-		Size = UDim2.fromOffset(320, 354),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 18, 0.55, 0),
+		Size = UDim2.fromOffset(320, 404),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.06,
 		Visible = false,
@@ -155,6 +159,41 @@ function QuestUI.mount(playerGui)
 		})
 	end
 
+	-- career cabinet: lifetime numbers from the persisted profile
+	UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 14,
+		TextColor3 = C.Sub,
+		Text = "CAREER",
+		Position = UDim2.fromOffset(16, 344),
+		Size = UDim2.new(1, -32, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	})
+	careerLine1 = UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = 14,
+		TextColor3 = C.Panel,
+		Text = "",
+		Position = UDim2.fromOffset(16, 362),
+		Size = UDim2.new(1, -32, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	})
+	careerLine2 = UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = 14,
+		TextColor3 = C.Panel,
+		Text = "",
+		Position = UDim2.fromOffset(16, 380),
+		Size = UDim2.new(1, -32, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	})
+
 	toggle.MouseButton1Click:Connect(function()
 		panel.Visible = not panel.Visible
 		if panel.Visible and lastData then
@@ -196,6 +235,15 @@ function QuestUI.progression(data)
 		local unlocked = level >= s.unlockLevel
 		skillLabels[i].Text = ("%s %s — Level %d  [%s]"):format(unlocked and "🔓" or "🔒", s.name, s.unlockLevel, s.key.Name)
 		skillLabels[i].TextColor3 = unlocked and C.Panel or C.Sub
+	end
+	local c = data.career
+	if c and careerLine1 and careerLine2 then
+		careerLine1.Text = ("📊 %dW - %dD - %dL  •  %d goal%s"):format(
+			tonumber(c.wins) or 0, tonumber(c.draws) or 0, tonumber(c.losses) or 0,
+			tonumber(c.goals) or 0, (tonumber(c.goals) or 0) == 1 and "" or "s")
+		careerLine2.Text = ("👟 %d nutmegs  •  🏆 %d troph%s  •  %d matches"):format(
+			tonumber(c.nutmegs) or 0, tonumber(c.trophies) or 0,
+			(tonumber(c.trophies) or 0) == 1 and "y" or "ies", tonumber(c.matches) or 0)
 	end
 end
 
