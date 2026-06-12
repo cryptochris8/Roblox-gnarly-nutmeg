@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Nations = require(Shared:WaitForChild("Nations"))
+local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
 
 local UiTheme = require(script.Parent.UiTheme)
 local C = UiTheme.Colors
@@ -187,6 +188,141 @@ function MenuUI.mount(playerGui)
 			pickerTitle.Text = "🏆 PICK YOUR NATION"
 		end
 	end)
+
+	-- 👕 THE LOCKER: equip earned boots / trails / celebrations
+	local lockerBtn = UiTheme.make("TextButton", {
+		Position = UDim2.fromOffset(18, 170),
+		Size = UDim2.fromOffset(184, 40),
+		BackgroundColor3 = Color3.fromRGB(120, 200, 255),
+		Font = UiTheme.Header,
+		TextSize = 15,
+		TextColor3 = C.Ink,
+		Text = "👕 LOCKER",
+		AutoButtonColor = true,
+		Parent = gui,
+	})
+	UiTheme.corner(12, lockerBtn)
+
+	local locker = UiTheme.make("Frame", {
+		Name = "Locker",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.46, 0),
+		Size = UDim2.new(0.92, 0, 0.82, 0),
+		BackgroundColor3 = C.PanelDark,
+		BackgroundTransparency = 0.05,
+		Visible = false,
+		Parent = gui,
+	})
+	local lockerCap = Instance.new("UISizeConstraint")
+	lockerCap.MaxSize = Vector2.new(560, 430)
+	lockerCap.Parent = locker
+	UiTheme.corner(18, locker)
+	UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 20,
+		TextColor3 = Color3.fromRGB(120, 200, 255),
+		Text = "👕 YOUR LOCKER — earn it by playing",
+		Position = UDim2.fromOffset(0, 10),
+		Size = UDim2.new(1, 0, 0, 24),
+		Parent = locker,
+	})
+	local lockerClose = UiTheme.make("TextButton", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -10, 0, 8),
+		Size = UDim2.fromOffset(34, 34),
+		BackgroundColor3 = C.Track,
+		Font = UiTheme.Header,
+		TextSize = 16,
+		TextColor3 = C.Panel,
+		Text = "✕",
+		Parent = locker,
+	})
+	UiTheme.corner(8, lockerClose)
+	lockerClose.MouseButton1Click:Connect(function()
+		locker.Visible = false
+	end)
+
+	local equipEvent = Remotes.get(Remotes.RequestEquip)
+	local lockerItems = {} -- { {btn, slot, item} } restyled on every sync
+	local function lockerSection(yOff: number, height: number, title: string, slot: string, list, columns: number)
+		UiTheme.make("TextLabel", {
+			BackgroundTransparency = 1,
+			Font = UiTheme.Header,
+			TextSize = 14,
+			TextColor3 = C.Sub,
+			Text = title,
+			Position = UDim2.fromOffset(16, yOff),
+			Size = UDim2.new(1, -32, 0, 16),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = locker,
+		})
+		local grid = UiTheme.make("Frame", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(16, yOff + 18),
+			Size = UDim2.new(1, -32, 0, height),
+			Parent = locker,
+		})
+		local layout = Instance.new("UIGridLayout")
+		layout.CellSize = UDim2.new(1 / columns, -6, 0.5, -6)
+		if #list <= columns then
+			layout.CellSize = UDim2.new(1 / columns, -6, 1, -4)
+		end
+		layout.CellPadding = UDim2.fromOffset(6, 6)
+		layout.Parent = grid
+		for _, item in ipairs(list) do
+			local b = UiTheme.make("TextButton", {
+				BackgroundColor3 = (slot == "boots" and (item :: any).color)
+					or (slot == "trail" and (item :: any).c1)
+					or Color3.fromRGB(90, 200, 140),
+				Font = UiTheme.Header,
+				TextScaled = true,
+				TextColor3 = Color3.fromRGB(20, 22, 28),
+				Text = item.name,
+				AutoButtonColor = true,
+				Parent = grid,
+			})
+			UiTheme.corner(10, b)
+			local stroke = Instance.new("UIStroke")
+			stroke.Thickness = 0
+			stroke.Color = Color3.fromRGB(255, 255, 255)
+			stroke.Parent = b
+			b.MouseButton1Click:Connect(function()
+				equipEvent:FireServer(slot, item.id)
+			end)
+			lockerItems[#lockerItems + 1] = { btn = b, stroke = stroke, slot = slot, item = item }
+		end
+	end
+	lockerSection(44, 120, "BOOTS", "boots", Cosmetics.Boots, 4)
+	lockerSection(196, 52, "BALL TRAILS", "trail", Cosmetics.Trails, 5)
+	lockerSection(264, 52, "GOAL CELEBRATIONS", "celebration", Cosmetics.Celebrations, 3)
+	UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = 13,
+		TextColor3 = C.Sub,
+		Text = "Locked items show their level — every match earns XP!",
+		Position = UDim2.fromOffset(16, 330),
+		Size = UDim2.new(1, -32, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = locker,
+	})
+
+	lockerBtn.MouseButton1Click:Connect(function()
+		locker.Visible = not locker.Visible
+	end)
+
+	-- restyle from every ProgressionSync: lock overlays + the equipped tick
+	function MenuUI.cosmetics(equipped, level)
+		level = tonumber(level) or 1
+		for _, e in ipairs(lockerItems) do
+			local locked = level < e.item.unlockLevel
+			local isOn = equipped and equipped[e.slot] == e.item.id
+			e.btn.Text = locked and ("🔒 Lv" .. e.item.unlockLevel) or ((isOn and "✓ " or "") .. e.item.name)
+			e.btn.BackgroundTransparency = locked and 0.55 or 0
+			e.stroke.Thickness = isOn and 3 or 0
+		end
+	end
 
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)
 	if not UserInputService.TouchEnabled then

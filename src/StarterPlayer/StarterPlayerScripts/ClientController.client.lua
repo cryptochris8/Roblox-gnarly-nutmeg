@@ -92,6 +92,9 @@ end)
 Remotes.get(Remotes.ProgressionSync).OnClientEvent:Connect(function(data)
 	HudUI.progression(data)
 	QuestUI.progression(data)
+	if data and MenuUI.cosmetics then
+		MenuUI.cosmetics(data.cosmetics, data.level)
+	end
 end)
 Remotes.get(Remotes.Toast).OnClientEvent:Connect(function(text)
 	HudUI.toast(text)
