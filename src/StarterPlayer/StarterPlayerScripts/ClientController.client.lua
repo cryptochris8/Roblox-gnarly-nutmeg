@@ -41,9 +41,39 @@ end)
 player.CharacterAdded:Connect(function()
 	CameraDirector.reset()
 end)
+-- HUMANS celebrate from their OWN client: server-played tracks replicate for
+-- server-owned bots but NOT for player characters, so without this the human
+-- scorer stood frozen while the bots danced around them.
+local DANCE_IDS = { 507771019, 507776043, 507777268 }
+local CHEER_ID = 507770677
+local function celebrateLocally(isScorer)
+	pcall(function()
+		local char = player.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local animator = hum and hum:FindFirstChildOfClass("Animator")
+		if not animator then
+			return
+		end
+		local id = isScorer and DANCE_IDS[math.random(#DANCE_IDS)] or CHEER_ID
+		local a = Instance.new("Animation")
+		a.AnimationId = "rbxassetid://" .. id
+		local track = animator:LoadAnimation(a)
+		track.Priority = Enum.AnimationPriority.Action
+		track.Looped = true
+		track:Play(0.15)
+		task.delay(5.2, function()
+			track:Stop(0.4)
+			track:Destroy()
+		end)
+	end)
+end
+
 Remotes.get(Remotes.GoalScored).OnClientEvent:Connect(function(info)
 	task.spawn(CameraDirector.goalReplay, info)
 	task.spawn(GoalFx.goal, info)
+	if info and player.Team and player.Team.Name == info.team then
+		task.spawn(celebrateLocally, info.scorer == player.DisplayName)
+	end
 	HudUI.goal(info)
 end)
 Remotes.get(Remotes.StaminaUpdate).OnClientEvent:Connect(function(frac)
