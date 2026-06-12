@@ -11,7 +11,7 @@ local BadgeService = {}
 
 local IDS = {
 	FirstGoal = 4152203081098453,
-	HatTrick = 0,
+	HatTrick = 4087072710827826,
 	FirstNutmeg = 386665015462925,
 	CupWinner = 1224844358661312,
 	LegendSlayer = 0,
