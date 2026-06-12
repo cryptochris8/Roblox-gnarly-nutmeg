@@ -263,7 +263,8 @@ local function onGoal(scoreTeam: string)
 			repositionEveryone()
 			PlayerService.freezeAll(false)
 			AIService.setActive(true)
-			BallService.kickoff()
+			-- real football: the team that CONCEDED takes the kickoff
+			BallService.kickoff(TeamService.info(scoreTeam).opponent)
 			state = "Playing"
 			broadcastNow()
 		end

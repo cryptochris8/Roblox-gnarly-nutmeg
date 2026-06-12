@@ -677,9 +677,15 @@ function BallService.placeAtCenter()
 end
 
 -- Reset to centre and (re)start play -- called by MatchService at each kickoff.
-function BallService.kickoff()
+-- forTeam (real-football kickoffs): after a goal the CONCEDING team restarts,
+-- so they get the same exclusive first-touch window a throw-in gives.
+function BallService.kickoff(forTeam: string?)
 	BallService.placeAtCenter()
 	ignorePickupUntil = os.clock() + 0.3
+	if forTeam then
+		exclusiveTeam = forTeam
+		exclusiveUntil = os.clock() + RESTART.ExclusiveSeconds
+	end
 	enabled = true
 end
 
