@@ -147,7 +147,17 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 	-- if avatar creation fails, so a match always runs.
 	local model: Model? = nil
 	local ok = pcall(function()
-		model = Players:CreateHumanoidModelFromDescription(Instance.new("HumanoidDescription"), Enum.HumanoidRigType.R15)
+		-- an athletic squad with no two builds alike: keepers tall and rangy,
+		-- backs solid, strikers lean — body-type leans Rthro for real anatomy
+		local desc = Instance.new("HumanoidDescription")
+		local isKeeper = role == GameConfig.GoalkeeperRole
+		local lean = def.offensive > 0.7
+		desc.HeightScale = (isKeeper and 1.07 or (lean and 0.99 or 1.03)) + (math.random() - 0.5) * 0.05
+		desc.WidthScale = (lean and 0.93 or 1.02) + (math.random() - 0.5) * 0.06
+		desc.DepthScale = 0.95 + math.random() * 0.08
+		desc.BodyTypeScale = 0.6 + math.random() * 0.3
+		desc.ProportionScale = 0.85 + math.random() * 0.15
+		model = Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 	end)
 	if not ok or not model then
 		local m = Instance.new("Model")

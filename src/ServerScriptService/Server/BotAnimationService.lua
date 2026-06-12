@@ -177,11 +177,23 @@ local function ensureActionAnims()
 		return
 	end
 	local deg = math.rad
-	-- the leg swing: wind the right thigh back, lash through, recover
+	-- the leg swing: wind the right thigh back, lash through, recover — with
+	-- the torso counter-rotating and the arms swinging like a real strike
 	local kickId = buildSequence({
 		{ t = 0, spec = {} },
-		{ t = 0.1, spec = { RightUpperLeg = CFrame.Angles(deg(38), 0, 0), RightLowerLeg = CFrame.Angles(deg(-55), 0, 0) } },
-		{ t = 0.24, spec = { RightUpperLeg = CFrame.Angles(deg(-78), 0, 0), RightLowerLeg = CFrame.Angles(deg(15), 0, 0) } },
+		{ t = 0.1, spec = {
+			RightUpperLeg = CFrame.Angles(deg(38), 0, 0),
+			RightLowerLeg = CFrame.Angles(deg(-55), 0, 0),
+			UpperTorso = CFrame.Angles(deg(7), deg(-12), 0),
+			LeftUpperArm = CFrame.Angles(deg(28), 0, deg(-10)),
+		} },
+		{ t = 0.24, spec = {
+			RightUpperLeg = CFrame.Angles(deg(-78), 0, 0),
+			RightLowerLeg = CFrame.Angles(deg(15), 0, 0),
+			UpperTorso = CFrame.Angles(deg(-9), deg(15), 0),
+			LeftUpperArm = CFrame.Angles(deg(-38), 0, deg(12)),
+			RightUpperArm = CFrame.Angles(deg(22), 0, deg(14)),
+		} },
 		{ t = 0.55, spec = {} },
 	})
 	-- the slide: lean way back and sink while momentum carries them through
