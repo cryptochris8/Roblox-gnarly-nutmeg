@@ -191,6 +191,16 @@ function ProgressionService.sync(player: Player)
 			}
 		end
 		local tier = math.clamp(tonumber(prog.League.tier) or 1, 1, Leagues.MaxTier)
+		-- the equipped cosmetics ride along (blob owned by CosmeticsService;
+		-- read directly to avoid a module cycle)
+		local cosmetics = nil
+		do
+			local p2 = PlayerDataService.get(player)
+			local c = p2 and (p2 :: any).Cosmetics
+			if type(c) == "table" and type(c.equipped) == "table" then
+				cosmetics = c.equipped
+			end
+		end
 		-- career totals ride along so the client can show the trophy cabinet
 		local career = nil
 		local p = PlayerDataService.get(player)
@@ -213,6 +223,7 @@ function ProgressionService.sync(player: Player)
 			quests = quests,
 			streak = prog.Streak.count,
 			career = career,
+			cosmetics = cosmetics,
 			league = {
 				tier = tier,
 				name = Leagues.get(tier).name,

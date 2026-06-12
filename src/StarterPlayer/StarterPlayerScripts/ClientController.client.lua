@@ -10,6 +10,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
 
 local scripts = script.Parent
 local HudUI = require(scripts:WaitForChild("HudUI"))
@@ -46,6 +47,7 @@ end)
 -- scorer stood frozen while the bots danced around them.
 local DANCE_IDS = { 507771019, 507776043, 507777268 }
 local CHEER_ID = 507770677
+local equippedCelebration = "groove" -- updated from ProgressionSync (the locker)
 local function celebrateLocally(isScorer)
 	pcall(function()
 		local char = player.Character
@@ -54,7 +56,8 @@ local function celebrateLocally(isScorer)
 		if not animator then
 			return
 		end
-		local id = isScorer and DANCE_IDS[math.random(#DANCE_IDS)] or CHEER_ID
+		local picked = Cosmetics.celebration(equippedCelebration)
+		local id = isScorer and ((picked and picked.animId) or DANCE_IDS[math.random(#DANCE_IDS)]) or CHEER_ID
 		local a = Instance.new("Animation")
 		a.AnimationId = "rbxassetid://" .. id
 		local track = animator:LoadAnimation(a)
@@ -114,6 +117,10 @@ task.delay(3, announceRole)
 -- First-ever visit: a six-second welcome that explains the whole game.
 local welcomed = false
 Remotes.get(Remotes.ProgressionSync).OnClientEvent:Connect(function(data)
+	-- the locker keeps my goal celebration current
+	if data and type(data.cosmetics) == "table" and type(data.cosmetics.celebration) == "string" then
+		equippedCelebration = data.cosmetics.celebration
+	end
 	if welcomed or not data or not data.career then
 		return
 	end

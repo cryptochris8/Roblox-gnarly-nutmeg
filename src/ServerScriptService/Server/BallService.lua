@@ -27,6 +27,8 @@ local PlayerService = require(script.Parent.PlayerService)
 local AudioService = require(script.Parent.AudioService)
 local DifficultyService = require(script.Parent.DifficultyService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
+local CosmeticsService = require(script.Parent.CosmeticsService)
+local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
 
 local FIELD = GameConfig.Field
 local BALL = GameConfig.Ball
@@ -152,6 +154,29 @@ local function styleTrail(color: Color3, width: number, lifetime: number)
 			t.Color = ColorSequence.new(color)
 			t.WidthScale = NumberSequence.new(width, 0.2)
 			t.Lifetime = lifetime
+		end
+	end)
+end
+
+-- a human kicker's EQUIPPED trail recolours the streak (width/lifetime keep
+-- their contextual meaning); returns quietly for bots and the classic default
+local function applyEquippedTrail(fromModel: Model)
+	pcall(function()
+		local uid = (fromModel:GetAttribute("UserId") :: number?) or 0
+		if uid == 0 then
+			return
+		end
+		local plr = Players:GetPlayerByUserId(uid)
+		if not plr then
+			return
+		end
+		local style = Cosmetics.trail(CosmeticsService.getEquipped(plr).trail)
+		if not style or style.id == "classic" then
+			return
+		end
+		local t = shotTrail
+		if t then
+			t.Color = ColorSequence.new(style.c1, style.c2)
 		end
 	end)
 end
@@ -364,6 +389,7 @@ function BallService.passFrom(fromModel: Model, forcedReceiver: Model?): boolean
 	AudioService.kick(speed / KICK.PassSpeedMax * 0.7)
 	BotAnimationService.kick(fromModel)
 	styleTrail(Color3.fromRGB(245, 245, 245), 0.7, 0.16) -- thin white pass streak
+	applyEquippedTrail(fromModel)
 	return true
 end
 
@@ -495,6 +521,7 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 		styleTrail(Color3.fromRGB(255, 120, 40), 1.7, 0.42)
 	else
 		styleTrail(TeamService.info(team).color, 0.9 + charge * 0.9, 0.22 + charge * 0.18)
+		applyEquippedTrail(fromModel)
 	end
 	if fromModel:GetAttribute("IsBot") ~= true and charge >= 0.8 then
 		AudioService.commentary("bigShot") -- the call rides the flight of a thunderbolt

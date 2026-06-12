@@ -29,6 +29,7 @@ local MatchService = require(script.Parent.MatchService)
 local TournamentService = require(script.Parent.TournamentService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local BadgeService = require(script.Parent.BadgeService)
+local CosmeticsService = require(script.Parent.CosmeticsService)
 
 -- 3) Initialize, in dependency order.
 PlayerDataService.init() -- leaderstats + persistence on join/leave
@@ -45,6 +46,7 @@ PowerupService.init()              -- arcade power-up orbs (GameConfig.Arcade)
 ProgressionService.init()          -- XP / levels / daily quests / login streak
 TournamentService.init()           -- The Nutmeg Trophy (knockout bracket)
 LeaderboardService.init()          -- weekly global boards + pitchside display
+CosmeticsService.init()            -- the free locker (boots/trails/celebrations)
 MatchService.init(world)           -- match state machine + continuous match loop
 
 -- the tournament rides the match loop through these two hooks

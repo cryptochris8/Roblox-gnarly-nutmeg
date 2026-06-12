@@ -20,6 +20,7 @@ Remotes.RequestNutmeg = "RequestNutmeg"              -- poke the ball through a 
 Remotes.SetSprint = "SetSprint"                      -- on: boolean (hold to sprint)
 Remotes.StartTournament = "StartTournament"          -- nationName: begin a Nutmeg Trophy run
 Remotes.RequestSkill = "RequestSkill"                -- skillId: perform an unlocked skill move
+Remotes.RequestEquip = "RequestEquip"                -- slot, id: equip an unlocked cosmetic
 
 -- server -> client
 Remotes.MatchState = "MatchState"               -- full snapshot (phase, scores, time, your team/role)
@@ -42,6 +43,7 @@ local ALL_EVENTS = {
 	Remotes.SetSprint,
 	Remotes.StartTournament,
 	Remotes.RequestSkill,
+	Remotes.RequestEquip,
 	Remotes.ProgressionSync,
 	Remotes.MatchState,
 	Remotes.Countdown,
