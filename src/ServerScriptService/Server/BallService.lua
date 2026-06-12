@@ -334,6 +334,13 @@ function BallService.passFrom(fromModel: Model, forcedReceiver: Model?): boolean
 		local t = dist / speed
 		local vel = target.root.AssemblyLinearVelocity
 		local lead = target.root.Position + Vector3.new(vel.X, 0, vel.Z) * (t * KICK.PassLeadDamping)
+		-- never lead a pass over a line: receivers sprinting the wing used to
+		-- get throw-in ping-pong instead of a ball they could keep in
+		lead = Vector3.new(
+			math.clamp(lead.X, FIELD.MinX + 2, FIELD.MaxX - 2),
+			lead.Y,
+			math.clamp(lead.Z, FIELD.MinZ + 2, FIELD.MaxZ - 2)
+		)
 		dir = lead - ballPos
 		receiver = target.model
 	else

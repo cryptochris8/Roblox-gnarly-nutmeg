@@ -26,6 +26,10 @@ export type Pose = {
 	carrierVel: Vector3, -- root AssemblyLinearVelocity
 }
 
+local GameConfig = require(script.Parent:WaitForChild("GameConfig"))
+local FIELD = GameConfig.Field
+local LINE_MARGIN = 1.4 -- the carried ball hugs inside the lines, never over
+
 local BallCarry = {}
 
 -- New horizontal velocity for the carried ball (callers preserve its Y).
@@ -45,8 +49,10 @@ function BallCarry.steer(cfg: Tuning, p: Pose): Vector3
 	if knock and knock > 0 then
 		off += math.max(0, (carrierVel.Magnitude - 16) / 16) * knock
 	end
-	local leadX = p.rootPos.X + dir.X * off
-	local leadZ = p.rootPos.Z + dir.Z * off
+	-- a dribbled ball NEVER rolls itself out of play: sprinting down the wing
+	-- used to knock the lead point over the touchline and gift a throw-in
+	local leadX = math.clamp(p.rootPos.X + dir.X * off, FIELD.MinX + LINE_MARGIN, FIELD.MaxX - LINE_MARGIN)
+	local leadZ = math.clamp(p.rootPos.Z + dir.Z * off, FIELD.MinZ + LINE_MARGIN, FIELD.MaxZ - LINE_MARGIN)
 	local toLead = Vector3.new(leadX - p.ballPos.X, 0, leadZ - p.ballPos.Z)
 	-- feed-forward the carrier's speed: a pure P-controller cruises at
 	-- v/Responsiveness BEHIND its target, so the faster the run the further
