@@ -15,6 +15,7 @@ local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -131,6 +132,33 @@ function InputController.start(hud)
 			return Enum.ContextActionResult.Pass
 		end, true, s.key, s.pad)
 		ContextActionService:SetTitle("GN_Skill_" .. id, string.split(s.name, " ")[1])
+	end
+
+	-- TOUCH LAYOUT: with 8 actions, the default auto-arc overlaps itself on a
+	-- phone. Arrange them deliberately: Shoot biggest by the thumb, the core
+	-- four around it, the three skill moves in a smaller row above.
+	if UserInputService.TouchEnabled then
+		pcall(function()
+			local layout = {
+				{ "GN_Shoot", 0.52, 0.42, 76 },
+				{ "GN_Pass", 0.22, 0.60, 62 },
+				{ "GN_Tackle", 0.06, 0.28, 58 },
+				{ "GN_Nutmeg", 0.30, 0.12, 56 },
+				{ "GN_Sprint", 0.62, 0.06, 56 },
+			}
+			for i, s in ipairs(Skills.List) do
+				layout[#layout + 1] = { "GN_Skill_" .. s.id, 0.04 + (i - 1) * 0.24, -0.16, 44 }
+			end
+			for _, it in ipairs(layout) do
+				local name = it[1] :: string
+				ContextActionService:SetPosition(name, UDim2.new(it[2] :: number, 0, it[3] :: number, 0))
+				local btn = ContextActionService:GetButton(name)
+				if btn then
+					local px = it[4] :: number
+					btn.Size = UDim2.fromOffset(px, px)
+				end
+			end
+		end)
 	end
 
 	-- Live-update the charge meter while holding shoot.
