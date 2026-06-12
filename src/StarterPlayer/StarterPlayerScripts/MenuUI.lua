@@ -83,18 +83,23 @@ function MenuUI.mount(playerGui)
 	})
 	UiTheme.corner(12, trophyBtn)
 
+	-- scale-based with a hard cap so the picker also fits phone screens
 	local picker = UiTheme.make("Frame", {
 		Name = "NationPicker",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.46, 0),
-		Size = UDim2.fromOffset(540, 380),
+		Size = UDim2.new(0.92, 0, 0.78, 0),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.05,
 		Visible = false,
 		Parent = gui,
 	})
+	local sizeCap = Instance.new("UISizeConstraint")
+	sizeCap.MaxSize = Vector2.new(540, 380)
+	sizeCap.Parent = picker
 	UiTheme.corner(18, picker)
-	UiTheme.make("TextLabel", {
+	local pickerTitle = UiTheme.make("TextLabel", {
+		Name = "PickerTitle",
 		BackgroundTransparency = 1,
 		Font = UiTheme.Header,
 		TextSize = 20,
@@ -127,7 +132,8 @@ function MenuUI.mount(playerGui)
 		Parent = picker,
 	})
 	local layout = Instance.new("UIGridLayout")
-	layout.CellSize = UDim2.fromOffset(122, 70)
+	-- scale cells: always a 4-wide grid, so the 16 nations fit ANY screen
+	layout.CellSize = UDim2.new(0.25, -6, 0.25, -6)
 	layout.CellPadding = UDim2.fromOffset(6, 6)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.Parent = grid
@@ -154,6 +160,32 @@ function MenuUI.mount(playerGui)
 
 	trophyBtn.MouseButton1Click:Connect(function()
 		picker.Visible = not picker.Visible
+	end)
+
+	-- someone is hosting a cup: pop the picker for EVERYONE with a countdown,
+	-- so friends in the server can claim their nation and join the bracket
+	local lobbyGen = 0
+	Remotes.get(Remotes.TournamentLobby).OnClientEvent:Connect(function(info)
+		lobbyGen += 1
+		local gen = lobbyGen
+		if type(info) == "table" and info.open then
+			picker.Visible = true
+			local deadline = os.clock() + (tonumber(info.seconds) or 20)
+			local host = tostring(info.host or "Someone")
+			task.spawn(function()
+				while gen == lobbyGen and picker.Parent do
+					local left = math.max(0, math.ceil(deadline - os.clock()))
+					pickerTitle.Text = ("🏆 %s IS HOSTING — CLAIM A NATION!  (%ds)"):format(host, left)
+					if left <= 0 then
+						break
+					end
+					task.wait(0.25)
+				end
+			end)
+		else
+			picker.Visible = false
+			pickerTitle.Text = "🏆 PICK YOUR NATION"
+		end
 	end)
 
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)

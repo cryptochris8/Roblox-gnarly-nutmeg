@@ -50,6 +50,10 @@ local INFO: { [string]: TeamInfo } = {
 -- Paint a tournament identity (nation name + kit colour) onto a side. Kits,
 -- highlights, and confetti all read INFO.color at spawn/use, so the next
 -- kickoff dresses everyone correctly. Pass nil to restore RED/BLUE defaults.
+type Assignment = { team: TeamName, role: Roles.RoleKey }
+local assignments: { [Player]: Assignment } = {}
+local takenRoles: { [string]: { [string]: Player } } = { Blue = {}, Red = {} }
+
 function TeamService.setIdentity(team: TeamName, displayName: string?, color: Color3?)
 	local info = INFO[team]
 	if not info then
@@ -61,14 +65,17 @@ function TeamService.setIdentity(team: TeamName, displayName: string?, color: Co
 	local teamObj = teamObjects[team]
 	if teamObj then
 		teamObj.TeamColor = info.brick
+		-- changing a Team's TeamColor orphans its members (membership is keyed
+		-- by colour) — re-seat everyone assigned here or player.Team goes nil
+		for plr, a in pairs(assignments) do
+			if a.team == team then
+				plr.Team = teamObj
+			end
+		end
 	end
 end
 
 TeamService.Names = { "Blue", "Red" }
-
-type Assignment = { team: TeamName, role: Roles.RoleKey }
-local assignments: { [Player]: Assignment } = {}
-local takenRoles: { [string]: { [string]: Player } } = { Blue = {}, Red = {} }
 
 function TeamService.teamSize(): number
 	return math.clamp(GameConfig.PlayersPerTeam, 1, GameConfig.MaxPlayersPerTeam)

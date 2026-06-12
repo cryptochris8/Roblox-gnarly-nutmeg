@@ -1,16 +1,21 @@
 --!strict
 -- TournamentService (SERVER)
--- "THE NUTMEG TROPHY": an 8-nation knockout — Quarterfinal, Semifinal, Final.
--- The starter picks a nation; their fixtures are played FOR REAL by painting
--- nation identities onto the Red/Blue sides (kits, highlights, scoreboard and
--- confetti all follow the identity automatically). Every other fixture is
--- simulated from the nations' strength ratings between rounds. Lose and you're
--- eliminated (the bracket plays itself out to a champion); win the final for
--- the trophy ceremony and a persisted Trophies stat.
+-- "THE NUTMEG TROPHY": an 8-nation knockout (QF/SF/F) that ANY player can host
+-- and friends can JOIN. The first StartTournament opens a short claim lobby
+-- (everyone's nation picker pops up); each player may claim one nation. When
+-- the lobby closes, the bracket seeds with every claimed nation plus random
+-- fillers. Any fixture with at least one claimed nation is played FOR REAL —
+-- claim owners are placed on their nation's side (Red = first name in the tie,
+-- Blue = second) and the painted identities make kits/scoreboard/confetti
+-- follow. Everything else is simulated from nation strength between matches.
+-- Win the final for the trophy ceremony and a persisted Trophies stat.
 --
 -- Wiring (in Main): MatchService.onMatchSetup = TournamentService.beforeMatch,
 -- MatchService.onMatchFinished = TournamentService.afterMatch, and the
 -- StartTournament remote calls TournamentService.start.
+--
+-- KEY GUARD (do not regress): fixtureLive — the exhibition we fast-forward at
+-- cup start must never be scored as a fixture.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -29,24 +34,49 @@ local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
 
 local ROUND_NAMES = { "QUARTERFINAL", "SEMIFINAL", "FINAL" }
+local LOBBY_SECONDS = 20
 
 local TournamentService = {}
 
+type Fixture = { a: Nations.Nation, b: Nations.Nation }
+
 local active = false
-local fixtureLive = false -- the CURRENT match is a staged tournament fixture
-local starterTeam: string = "Blue"
-local playerNation: Nations.Nation? = nil
-local currentOpponent: Nations.Nation? = nil
-local othersAlive: { Nations.Nation } = {}
+local lobbyOpen = false
+local lobbyToken = 0
+local claims: { [string]: number } = {} -- nation name -> userId of its owner
+local field: { Nations.Nation } = {}    -- this round's entrants, in pair order
+local liveQueue: { Fixture } = {}       -- fixtures that involve a claimed nation
+local roundWinners: { Nations.Nation } = {}
+local current: Fixture? = nil
 local round = 0
 local board: { string } = {}
+local fixtureLive = false
 
 local toastEvent: RemoteEvent? = nil
+local lobbyEvent: RemoteEvent? = nil
 
 local function toast(text: string)
 	if toastEvent then
 		toastEvent:FireAllClients(text)
 	end
+end
+
+local function ownerOf(n: Nations.Nation): Player?
+	local uid = claims[n.name]
+	if not uid then
+		return nil
+	end
+	local plr = Players:GetPlayerByUserId(uid)
+	if plr and plr.Parent then
+		return plr
+	end
+	claims[n.name] = nil -- owner left the game; their nation plays on as bots
+	return nil
+end
+
+local function ownerTag(n: Nations.Nation): string
+	local plr = ownerOf(n)
+	return plr and (" (" .. plr.Name .. ")") or ""
 end
 
 -- Simulated fixture: strengths shape the score; knockouts always get a winner.
@@ -65,33 +95,11 @@ local function sim(a: Nations.Nation, b: Nations.Nation): (Nations.Nation, strin
 	return winner, ("%s %d : %d %s"):format(a.name, ga, gb, b.name)
 end
 
--- Simulate one whole round among the non-player survivors.
-local function simRound(): { Nations.Nation }
-	local survivors: { Nations.Nation } = {}
-	for i = 1, #othersAlive - 1, 2 do
-		local winner, line = sim(othersAlive[i], othersAlive[i + 1])
-		table.insert(board, line)
-		table.insert(survivors, winner)
+local function shuffle<T>(t: { T })
+	for i = #t, 2, -1 do
+		local j = math.random(1, i)
+		t[i], t[j] = t[j], t[i]
 	end
-	return survivors
-end
-
--- Bot-vs-bot bracket completion after the player is knocked out.
-local function simulateToChampion(startRound: number, firstSurvivors: { Nations.Nation }): Nations.Nation
-	local field = firstSurvivors
-	local r = startRound
-	while #field > 1 do
-		table.insert(board, "— " .. (ROUND_NAMES[r] or "Round") .. " —")
-		local nextField: { Nations.Nation } = {}
-		for i = 1, #field - 1, 2 do
-			local winner, line = sim(field[i], field[i + 1])
-			table.insert(board, line)
-			table.insert(nextField, winner)
-		end
-		field = nextField
-		r += 1
-	end
-	return field[1]
 end
 
 -- The golden cup on a podium at the centre spot.
@@ -112,10 +120,8 @@ local function buildTrophy(): Instance?
 		return p
 	end
 	local y = GameConfig.Field.GroundY
-	-- podium
 	part(Vector3.new(8, 2, 8), CFrame.new(0, y + 1, 0), Color3.fromRGB(40, 44, 60), Enum.Material.SmoothPlastic)
 	part(Vector3.new(6, 1.2, 6), CFrame.new(0, y + 2.6, 0), gold, Enum.Material.Metal)
-	-- cup: stem, bowl, lid ball + handles
 	part(Vector3.new(1, 2.4, 1), CFrame.new(0, y + 4.4, 0), gold, Enum.Material.Metal)
 	local bowl = part(Vector3.new(3, 2.6, 3), CFrame.new(0, y + 6.6, 0), gold, Enum.Material.Metal)
 	bowl.Shape = Enum.PartType.Ball
@@ -123,7 +129,6 @@ local function buildTrophy(): Instance?
 	for _, sx in ipairs({ -1, 1 }) do
 		part(Vector3.new(0.5, 2, 0.5), CFrame.new(sx * 1.9, y + 6.8, 0) * CFrame.Angles(0, 0, sx * 0.5), gold, Enum.Material.Metal)
 	end
-	-- glow + confetti
 	local light = Instance.new("PointLight")
 	light.Color = gold
 	light.Range = 24
@@ -141,15 +146,17 @@ local function buildTrophy(): Instance?
 	return model
 end
 
-local function ceremony(champion: Nations.Nation)
+-- winnerTeam = the side that lifted it in the live final (dances + trophies).
+local function ceremony(champion: Nations.Nation, winnerTeam: string?)
 	pcall(function()
 		AudioService.goal()
-		toast(("🏆 %s WIN THE NUTMEG TROPHY!"):format(champion.name))
+		toast(("🏆 %s%s WIN THE NUTMEG TROPHY!"):format(champion.name, ownerTag(champion)))
 		local trophy = buildTrophy()
-		-- the champions dance; the crowd flashes go wild
-		for _, f in ipairs(BallService.listFootballers()) do
-			if f.team == starterTeam then
-				BotAnimationService.celebrate(f.model, "dance")
+		if winnerTeam then
+			for _, f in ipairs(BallService.listFootballers()) do
+				if f.team == winnerTeam then
+					BotAnimationService.celebrate(f.model, "dance")
+				end
 			end
 		end
 		local pitch = Workspace:FindFirstChild("Pitch")
@@ -165,11 +172,12 @@ local function ceremony(champion: Nations.Nation)
 				end
 			end
 		end
-		-- trophies for the humans who lifted it
-		for _, plr in ipairs(Players:GetPlayers()) do
-			local a = TeamService.getAssignment(plr)
-			if a and a.team == starterTeam then
-				PlayerDataService.addTrophy(plr)
+		if winnerTeam then
+			for _, plr in ipairs(Players:GetPlayers()) do
+				local a = TeamService.getAssignment(plr)
+				if a and a.team == winnerTeam then
+					PlayerDataService.addTrophy(plr)
+				end
 			end
 		end
 		task.delay(12, function()
@@ -182,51 +190,147 @@ end
 
 local function endTournament()
 	active = false
-	playerNation = nil
-	currentOpponent = nil
-	othersAlive = {}
+	lobbyOpen = false
+	table.clear(claims)
+	field = {}
+	liveQueue = {}
+	roundWinners = {}
+	current = nil
 	round = 0
 end
 
--- Begin a run: draw 7 opponents, queue the quarterfinal, fast-forward the
--- current exhibition so the bracket starts at the next kickoff.
-function TournamentService.start(player: Player, nationName: string)
-	if active then
-		toast("A Nutmeg Trophy run is already underway!")
-		return
+-- Pair off the current field: claimed ties queue up to be PLAYED, the rest
+-- resolve by simulation immediately.
+local function startRound()
+	table.insert(board, "— " .. (ROUND_NAMES[round] or "ROUND") .. " —")
+	liveQueue = {}
+	roundWinners = {}
+	for i = 1, #field - 1, 2 do
+		local a, b = field[i], field[i + 1]
+		if claims[a.name] or claims[b.name] then
+			table.insert(liveQueue, { a = a, b = b })
+		else
+			local winner, line = sim(a, b)
+			table.insert(board, line)
+			table.insert(roundWinners, winner)
+		end
 	end
+	MatchService.board = board
+	if #liveQueue > 0 then
+		local f = liveQueue[1]
+		toast(("%s: %s%s vs %s%s — next kickoff!"):format(
+			ROUND_NAMES[round] or "NEXT", f.a.name, ownerTag(f.a), f.b.name, ownerTag(f.b)))
+	end
+end
+
+-- Take the next live fixture whose claims still stand; dead ties get simmed.
+local function popLiveFixture(): Fixture?
+	while #liveQueue > 0 do
+		local f = table.remove(liveQueue, 1) :: Fixture
+		if ownerOf(f.a) or ownerOf(f.b) then
+			return f
+		end
+		local winner, line = sim(f.a, f.b)
+		table.insert(board, line)
+		table.insert(roundWinners, winner)
+	end
+	return nil
+end
+
+-- Close a round once its queue is empty. Returns false when the cup is over.
+local function finishRound(): boolean
+	if #roundWinners == 1 then
+		local champion = roundWinners[1]
+		table.insert(board, ("🏆 CHAMPIONS: %s"):format(champion.name))
+		MatchService.board = board
+		-- no live final produced this champion (all claims died) — no ceremony
+		toast(("🏆 %s win the Nutmeg Trophy."):format(champion.name))
+		endTournament()
+		return false
+	end
+	round += 1
+	field = roundWinners
+	shuffle(field)
+	startRound()
+	return true
+end
+
+-- Begin hosting OR claim a nation in an open lobby.
+function TournamentService.start(player: Player, nationName: string)
 	local nation = Nations.byName(nationName)
 	if not nation then
 		return
 	end
-	local a = TeamService.getAssignment(player)
-	starterTeam = a and a.team or "Blue"
-	playerNation = nation
 
-	-- draw 7 distinct rivals
-	local pool: { Nations.Nation } = {}
-	for _, n in ipairs(Nations.List) do
-		if n.name ~= nation.name then
-			table.insert(pool, n)
+	if active and not lobbyOpen then
+		toast("A Nutmeg Trophy run is already underway!")
+		return
+	end
+
+	if lobbyOpen then
+		-- a claim (or a re-pick) during the lobby window
+		if claims[nation.name] and claims[nation.name] ~= player.UserId then
+			toast(("%s is already claimed — pick another nation!"):format(nation.name))
+			return
 		end
+		for name, uid in pairs(claims) do
+			if uid == player.UserId then
+				claims[name] = nil -- re-pick: release the old nation
+			end
+		end
+		claims[nation.name] = player.UserId
+		toast(("⚽ %s will play as %s!"):format(player.Name, nation.name))
+		return
 	end
-	for i = #pool, 2, -1 do
-		local j = math.random(1, i)
-		pool[i], pool[j] = pool[j], pool[i]
-	end
-	currentOpponent = pool[1]
-	othersAlive = { pool[2], pool[3], pool[4], pool[5], pool[6], pool[7] }
-	round = 1
-	board = { "🏆 THE NUTMEG TROPHY", ("%s's road begins!"):format(nation.name) }
-	active = true
 
-	toast(("🏆 %s enter THE NUTMEG TROPHY! Quarterfinal vs %s — next kickoff!"):format(nation.name, (currentOpponent :: Nations.Nation).name))
-	MatchService.abortMatch() -- wrap the running exhibition quickly
+	-- fresh cup: open the claim lobby
+	active = true
+	lobbyOpen = true
+	lobbyToken += 1
+	local token = lobbyToken
+	table.clear(claims)
+	claims[nation.name] = player.UserId
+	board = { "🏆 THE NUTMEG TROPHY" }
+	toast(("🏆 %s is hosting THE NUTMEG TROPHY as %s! Pick a nation to JOIN — kickoff in %ds"):format(
+		player.Name, nation.name, LOBBY_SECONDS))
+	if lobbyEvent then
+		lobbyEvent:FireAllClients({ open = true, seconds = LOBBY_SECONDS, host = player.Name })
+	end
+
+	task.delay(LOBBY_SECONDS, function()
+		if lobbyToken ~= token or not lobbyOpen then
+			return
+		end
+		lobbyOpen = false
+		if lobbyEvent then
+			lobbyEvent:FireAllClients({ open = false })
+		end
+		-- seed: claimed nations first (stable order), random fill to 8
+		field = {}
+		local pool: { Nations.Nation } = {}
+		for _, n in ipairs(Nations.List) do
+			if claims[n.name] then
+				table.insert(field, n)
+			else
+				table.insert(pool, n)
+			end
+		end
+		local challengers = #field
+		shuffle(pool)
+		while #field < 8 do
+			table.insert(field, table.remove(pool) :: Nations.Nation)
+		end
+		shuffle(field)
+		round = 1
+		table.insert(board, ("%d nation%s answered the call"):format(challengers, challengers == 1 and "" or "s"))
+		startRound()
+		MatchService.abortMatch() -- wrap the running exhibition quickly
+	end)
 end
 
--- MatchService.onMatchSetup: paint identities for the upcoming fixture.
+-- MatchService.onMatchSetup: stage the next live fixture (if any).
 function TournamentService.beforeMatch()
-	if not active or not playerNation or not currentOpponent then
+	if not active or lobbyOpen then
 		fixtureLive = false
 		TeamService.setIdentity("Red", nil, nil)
 		TeamService.setIdentity("Blue", nil, nil)
@@ -235,61 +339,86 @@ function TournamentService.beforeMatch()
 		-- after the run; the next tournament resets it)
 		return
 	end
+	while current == nil do
+		current = popLiveFixture()
+		if current == nil then
+			-- round complete with no live fixture to stage
+			if not finishRound() then
+				fixtureLive = false
+				TeamService.setIdentity("Red", nil, nil)
+				TeamService.setIdentity("Blue", nil, nil)
+				MatchService.roundLabel = nil
+				return
+			end
+		end
+	end
+	local cur = current :: Fixture
 	fixtureLive = true
-	local other = (starterTeam == "Red") and "Blue" or "Red"
-	TeamService.setIdentity(starterTeam, (playerNation :: Nations.Nation).name, (playerNation :: Nations.Nation).color)
-	TeamService.setIdentity(other, (currentOpponent :: Nations.Nation).name, (currentOpponent :: Nations.Nation).color)
+	-- claim owners play ON their nation's side (Red = a, Blue = b)
+	local pa, pb = ownerOf(cur.a), ownerOf(cur.b)
+	if pa then
+		TeamService.unassign(pa)
+		TeamService.assignHuman(pa, "Red")
+	end
+	if pb then
+		TeamService.unassign(pb)
+		TeamService.assignHuman(pb, "Blue")
+	end
+	TeamService.setIdentity("Red", cur.a.name, cur.a.color)
+	TeamService.setIdentity("Blue", cur.b.name, cur.b.color)
 	MatchService.roundLabel = ROUND_NAMES[round]
 	MatchService.board = board
-	toast(("%s: %s vs %s"):format(ROUND_NAMES[round], (playerNation :: Nations.Nation).name, (currentOpponent :: Nations.Nation).name))
+	toast(("%s: %s%s vs %s%s"):format(
+		ROUND_NAMES[round] or "FIXTURE", cur.a.name, ownerTag(cur.a), cur.b.name, ownerTag(cur.b)))
 end
 
--- MatchService.onMatchFinished: advance or eliminate, then sim the rest.
--- Only counts matches that beforeMatch actually staged — the exhibition we
--- fast-forward when a tournament starts must never be scored as a fixture.
+-- MatchService.onMatchFinished: score the fixture, advance the bracket.
 function TournamentService.afterMatch(winnerTeam: string?)
-	if not active or not fixtureLive or not playerNation or not currentOpponent then
+	if not active or not fixtureLive or not current then
 		return
 	end
 	fixtureLive = false
-	local me = playerNation :: Nations.Nation
-	local opp = currentOpponent :: Nations.Nation
-	local s = MatchService.getScore()
-	local myScore = (starterTeam == "Red") and s.Red or s.Blue
-	local oppScore = (starterTeam == "Red") and s.Blue or s.Red
-	table.insert(board, ("%s %d : %d %s"):format(me.name, myScore, oppScore, opp.name))
+	local cur = current :: Fixture
+	current = nil
 
-	local playerWon = winnerTeam == starterTeam
-	if playerWon then
-		local survivors = simRound()
-		if round >= 3 then
-			ceremony(me)
-			table.insert(board, ("🏆 CHAMPIONS: %s"):format(me.name))
-			MatchService.board = board
-			endTournament()
-			return
-		end
-		round += 1
-		-- next opponent from the surviving half of the bracket
-		local idx = math.random(1, #survivors)
-		currentOpponent = table.remove(survivors, idx)
-		othersAlive = survivors
-		toast(("%s march on! %s vs %s — next kickoff!"):format(me.name, ROUND_NAMES[round], (currentOpponent :: Nations.Nation).name))
-	else
-		-- eliminated: the rest of the bracket plays itself out
-		toast(("%s are OUT — %s advance."):format(me.name, opp.name))
-		local survivors = simRound()
-		table.insert(survivors, 1, opp)
-		local champion = simulateToChampion(round + 1, survivors)
-		table.insert(board, ("🏆 CHAMPIONS: %s"):format(champion.name))
-		MatchService.board = board
-		toast(("🏆 %s win the Nutmeg Trophy."):format(champion.name))
-		endTournament()
+	local s = MatchService.getScore()
+	table.insert(board, ("%s %d : %d %s"):format(cur.a.name, s.Red, s.Blue, cur.b.name))
+
+	local winner = (winnerTeam == "Red") and cur.a or cur.b
+	local loser = (winner == cur.a) and cur.b or cur.a
+	claims[loser.name] = nil -- a beaten nation's owner becomes a neutral
+	table.insert(roundWinners, winner)
+	MatchService.board = board
+
+	if #liveQueue > 0 then
+		local nxt = liveQueue[1]
+		toast(("%s%s advance! Up next: %s%s vs %s%s"):format(
+			winner.name, ownerTag(winner), nxt.a.name, ownerTag(nxt.a), nxt.b.name, ownerTag(nxt.b)))
+		return
 	end
+
+	if #roundWinners == 1 then
+		-- that was the final
+		table.insert(board, ("🏆 CHAMPIONS: %s"):format(winner.name))
+		MatchService.board = board
+		if claims[winner.name] then
+			ceremony(winner, winnerTeam)
+		else
+			toast(("🏆 %s win the Nutmeg Trophy."):format(winner.name))
+		end
+		endTournament()
+		return
+	end
+
+	round += 1
+	field = roundWinners
+	shuffle(field)
+	startRound()
 end
 
 function TournamentService.init()
 	toastEvent = Remotes.get(Remotes.Toast)
+	lobbyEvent = Remotes.get(Remotes.TournamentLobby)
 end
 
 return TournamentService

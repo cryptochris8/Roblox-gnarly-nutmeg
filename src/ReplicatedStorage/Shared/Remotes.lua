@@ -30,6 +30,7 @@ Remotes.PossessionChanged = "PossessionChanged" -- userId: number (0 = loose bal
 Remotes.Nutmeg = "Nutmeg"                       -- { name = string, byUserId = number }
 Remotes.ProgressionSync = "ProgressionSync"     -- { xp, level, xpInto, xpNeed, quests, streak }
 Remotes.Toast = "Toast"                         -- text: string (small friendly message)
+Remotes.TournamentLobby = "TournamentLobby"     -- { open: boolean, seconds: number?, host: string? }
 
 local ALL_EVENTS = {
 	Remotes.RequestInitialState,
@@ -47,6 +48,7 @@ local ALL_EVENTS = {
 	Remotes.GoalScored,
 	Remotes.StaminaUpdate,
 	Remotes.PossessionChanged,
+	Remotes.TournamentLobby,
 	Remotes.Nutmeg,
 	Remotes.Toast,
 }
