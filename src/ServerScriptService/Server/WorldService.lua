@@ -580,10 +580,11 @@ end
 -- Loaded by id at boot, normalised to a target height, anchored, decorative
 -- only. id = 0 means not uploaded yet — silently skipped. Raw Meshy meshes
 -- face -Z, so aiming uses lookAt * 180° yaw (the facing contract from Squishy).
+-- (an entrance-arch prop was generated twice and failed visual QC twice —
+-- dropped; the plaza is the mascot's. A parts-built gate can come later.)
 local PROP_IDS = {
-	tvCamera = 0,
-	mascotStatue = 0,
-	entranceArch = 0,
+	tvCamera = 127716077350497,
+	mascotStatue = 102627059380175,
 }
 
 local function loadProp(id: number, targetHeight: number): Model?
@@ -641,10 +642,9 @@ local function buildHeroProps(parent: Instance)
 			local pos = Vector3.new(x, camY, CZ)
 			placeProp(PROP_IDS.tvCamera, 6, CFrame.lookAt(pos, Vector3.new(0, FIELD.GroundY + 2, 0)), parent)
 		end
-		-- the stadium plaza beyond the -Z end: mascot statue + entrance arch
+		-- the stadium plaza beyond the -Z end: the club mascot greets arrivals
 		local plazaZ = FIELD.MinZ - (standBase + 50)
-		placeProp(PROP_IDS.mascotStatue, 16, CFrame.lookAt(Vector3.new(CX - 26, FIELD.GroundY + 8, plazaZ), Vector3.new(CX - 26, FIELD.GroundY + 8, plazaZ + 10)), parent)
-		placeProp(PROP_IDS.entranceArch, 26, CFrame.lookAt(Vector3.new(CX, FIELD.GroundY + 13, plazaZ - 8), Vector3.new(CX, FIELD.GroundY + 13, plazaZ + 10)), parent)
+		placeProp(PROP_IDS.mascotStatue, 16, CFrame.lookAt(Vector3.new(CX, FIELD.GroundY + 8, plazaZ), Vector3.new(CX, FIELD.GroundY + 8, plazaZ + 10)), parent)
 	end)
 end
 

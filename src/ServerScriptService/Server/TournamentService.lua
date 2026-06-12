@@ -103,7 +103,7 @@ local function shuffle<T>(t: { T })
 end
 
 -- The generated golden cup (tools/mesh_pipeline). 0 = use the parts fallback.
-local TROPHY_MESH_ID = 0
+local TROPHY_MESH_ID = 71905579050165
 
 -- The golden cup on a podium at the centre spot. Uses the Meshy hero cup when
 -- its asset id is baked in; otherwise the original parts build stands in.

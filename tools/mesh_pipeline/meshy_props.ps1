@@ -19,11 +19,12 @@ $key = (Get-ItemProperty 'HKCU:\Environment' -Name MESHY_API_KEY).MESHY_API_KEY
 $headers = @{ Authorization = "Bearer $key" }
 $base = 'https://api.meshy.ai/openapi/v2/text-to-3d'
 
+# (entrance_arch was generated twice and failed visual QC twice - architecture
+# is a text-to-3D weak spot. Dropped; add new prop prompts here as needed.)
 $props = [ordered]@{
     trophy        = 'A gleaming golden soccer trophy: a tall polished gold cup with two elegant curved handles, on a small round golden base, original design, game asset'
     tv_camera     = 'A professional broadcast television camera on a sturdy tripod, dark gray body with a large round lens and a small side monitor, stadium TV camera, game asset'
     mascot_statue = 'A cheerful cartoon squirrel mascot statue holding a soccer ball under one arm, warm bronze metal statue standing on a simple stone pedestal, family friendly, game asset'
-    entrance_arch = 'A modern soccer stadium entrance archway: two angular concrete pillars supporting a sweeping curved blue roof canopy, clean sporty architecture, game asset'
 }
 
 $manifest = @{}

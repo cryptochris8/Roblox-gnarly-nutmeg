@@ -1,5 +1,17 @@
-﻿{
-    "name":  "trophy",
-    "assetId":  "71905579050165",
-    "state":  "Approved"
-}
+[
+    {
+        "name":  "trophy",
+        "assetId":  "71905579050165",
+        "state":  "Approved"
+    },
+    {
+        "name":  "tv_camera",
+        "assetId":  "127716077350497",
+        "state":  "Approved"
+    },
+    {
+        "name":  "mascot_statue",
+        "assetId":  "102627059380175",
+        "state":  "Approved"
+    }
+]

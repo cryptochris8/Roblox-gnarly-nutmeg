@@ -19,7 +19,8 @@ $manifestPath = Join-Path $PSScriptRoot 'props_uploaded.json'
 
 $manifest = @()
 if (Test-Path $manifestPath) {
-    $manifest = @(Get-Content $manifestPath -Raw | ConvertFrom-Json)
+    # force enumeration: PS 5.1 ConvertFrom-Json emits a JSON array as ONE object
+    $manifest = @((Get-Content $manifestPath -Raw | ConvertFrom-Json) | ForEach-Object { $_ })
 }
 function Save-Manifest {
     $script:manifest | ConvertTo-Json -Depth 4 | Set-Content -Path $manifestPath -Encoding utf8
