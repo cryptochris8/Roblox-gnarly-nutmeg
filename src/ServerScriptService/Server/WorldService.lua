@@ -621,13 +621,23 @@ local function loadProp(id: number, targetHeight: number): Model?
 	return model
 end
 
-local function placeProp(id: number, targetHeight: number, cf: CFrame, parent: Instance)
+-- tilt: per-prop axis correction (some Meshy FBX exports arrive Z-up — the
+-- mascot needed a +90° pitch, found empirically in the live place).
+-- snapToGround: drop the model so its bounding box sits on the grass.
+local function placeProp(id: number, targetHeight: number, cf: CFrame, parent: Instance, tilt: CFrame?, snapToGround: boolean?)
 	pcall(function()
 		local m = loadProp(id, targetHeight)
-		if m then
-			-- Meshy meshes face -Z: flip so the prop's face follows the lookAt
-			m:PivotTo(cf * CFrame.Angles(0, math.rad(180), 0))
-			m.Parent = parent
+		if not m then
+			return
+		end
+		-- Meshy meshes face -Z: flip so the prop's face follows the lookAt
+		m:PivotTo(cf * CFrame.Angles(0, math.rad(180), 0) * (tilt or CFrame.identity))
+		m.Parent = parent
+		if snapToGround then
+			local ext = m:GetExtentsSize()
+			local bb = m:GetBoundingBox()
+			local bottomY = bb.Position.Y - ext.Y / 2
+			m:PivotTo(m:GetPivot() + Vector3.new(0, FIELD.GroundY - bottomY, 0))
 		end
 	end)
 end
@@ -643,8 +653,16 @@ local function buildHeroProps(parent: Instance)
 			placeProp(PROP_IDS.tvCamera, 6, CFrame.lookAt(pos, Vector3.new(0, FIELD.GroundY + 2, 0)), parent)
 		end
 		-- the stadium plaza beyond the -Z end: the club mascot greets arrivals
-		local plazaZ = FIELD.MinZ - (standBase + 50)
-		placeProp(PROP_IDS.mascotStatue, 16, CFrame.lookAt(Vector3.new(CX, FIELD.GroundY + 8, plazaZ), Vector3.new(CX, FIELD.GroundY + 8, plazaZ + 10)), parent)
+		-- (offset clear of the jumbotron legs; faces the stadium; Z-up export
+		-- needs the +90° pitch — orientation verified live 2026-06-12)
+		placeProp(
+			PROP_IDS.mascotStatue,
+			16,
+			CFrame.new(CX - 34, FIELD.GroundY + 20, FIELD.MinZ - 68),
+			parent,
+			CFrame.Angles(math.rad(90), 0, 0),
+			true
+		)
 	end)
 end
 
