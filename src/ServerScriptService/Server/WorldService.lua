@@ -666,6 +666,31 @@ local function buildHeroProps(parent: Instance)
 	end)
 end
 
+-- After a goal the floodlights pulse the scoring team's colour, then settle
+-- back to broadcast white (wired from MatchService's goal flow).
+function WorldService.goalLightShow(color: Color3)
+	pcall(function()
+		local TweenService = game:GetService("TweenService")
+		local pitch = Workspace:FindFirstChild("Pitch")
+		if not pitch then
+			return
+		end
+		for _, lamp in ipairs(pitch:GetChildren()) do
+			if lamp.Name == "FloodLamp" then
+				local light = lamp:FindFirstChildOfClass("SpotLight")
+				if light then
+					light.Color = color
+					light.Brightness = 5.5
+					TweenService:Create(light, TweenInfo.new(2.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						Brightness = 3,
+						Color = Color3.fromRGB(255, 250, 235),
+					}):Play()
+				end
+			end
+		end
+	end)
+end
+
 local function tuneLighting()
 	pcall(function()
 		-- The template ships a broken/black skybox: with environment lighting on,

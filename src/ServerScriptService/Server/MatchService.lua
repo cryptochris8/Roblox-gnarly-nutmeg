@@ -246,6 +246,7 @@ local function onGoal(scoreTeam: string)
 		})
 	end
 	AudioService.goal(streak)
+	WorldService.goalLightShow(TeamService.info(scoreTeam).color)
 	pcall(celebrate, scoreTeam)
 	broadcastNow()
 
@@ -463,6 +464,9 @@ local function runShootout(): string
 	BallService.setShootoutMode(false)
 	shootoutActive = false
 	shootoutWinner = winner
+	-- belt and braces: every human refrozen no matter which kick path unfroze
+	-- them (a keeper who left/respawned mid-kick can otherwise slip the net)
+	PlayerService.freezeAll(true)
 	return winner :: string
 end
 

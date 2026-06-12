@@ -144,6 +144,18 @@ end
 local shotCurve: { accel: Vector3, expire: number }? = nil
 local lastShotAt = 0 -- commentary: a dead ball right after a shot = a near miss
 
+-- contextual ball trail: the streak tells you what kind of ball this is
+local function styleTrail(color: Color3, width: number, lifetime: number)
+	pcall(function()
+		local t = shotTrail
+		if t then
+			t.Color = ColorSequence.new(color)
+			t.WidthScale = NumberSequence.new(width, 0.2)
+			t.Lifetime = lifetime
+		end
+	end)
+end
+
 local function setPossession(model: Model?)
 	carrier = model
 	shotCurve = nil -- whatever the ball was doing in the air is over
@@ -180,7 +192,8 @@ local function setPossession(model: Model?)
 		end)
 	end
 	if possessionEvent then
-		possessionEvent:FireAllClients(uid)
+		-- team rides along so HUDs can say WHO has it (nil = loose ball)
+		possessionEvent:FireAllClients(uid, model and (model:GetAttribute("Team") :: string?) or nil)
 	end
 end
 
@@ -343,6 +356,7 @@ function BallService.passFrom(fromModel: Model, forcedReceiver: Model?): boolean
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	AudioService.kick(speed / KICK.PassSpeedMax * 0.7)
 	BotAnimationService.kick(fromModel)
+	styleTrail(Color3.fromRGB(245, 245, 245), 0.7, 0.16) -- thin white pass streak
 	return true
 end
 
@@ -469,6 +483,12 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	AudioService.kick(charge)
 	BotAnimationService.kick(fromModel)
+	-- the streak sells the strike: team colour by power, fiery when mega-kicked
+	if ((fromModel:GetAttribute("MegaKickUntil") :: number?) or 0) > os.clock() then
+		styleTrail(Color3.fromRGB(255, 120, 40), 1.7, 0.42)
+	else
+		styleTrail(TeamService.info(team).color, 0.9 + charge * 0.9, 0.22 + charge * 0.18)
+	end
 	if fromModel:GetAttribute("IsBot") ~= true and charge >= 0.8 then
 		AudioService.commentary("bigShot") -- the call rides the flight of a thunderbolt
 	end

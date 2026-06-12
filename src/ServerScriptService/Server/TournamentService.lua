@@ -343,6 +343,19 @@ function TournamentService.start(player: Player, nationName: string)
 		if lobbyEvent then
 			lobbyEvent:FireAllClients({ open = false })
 		end
+		-- claims whose owners already left die with the lobby; an empty lobby
+		-- cancels the cup instead of aborting the exhibition for nobody
+		for name, uid in pairs(claims) do
+			local plr = Players:GetPlayerByUserId(uid)
+			if not (plr and plr.Parent) then
+				claims[name] = nil
+			end
+		end
+		if next(claims) == nil then
+			toast("The cup was called off — the host left before kickoff.")
+			endTournament()
+			return
+		end
 		-- seed: claimed nations first (stable order), random fill to 8
 		field = {}
 		local pool: { Nations.Nation } = {}

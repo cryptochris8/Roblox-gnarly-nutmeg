@@ -205,6 +205,23 @@ local function spawnOrb(spot: Vector3)
 	orb.CanQuery = false
 	orb.CFrame = CFrame.new(spot)
 	orb:SetAttribute("PowerupId", ptype.id)
+	-- floating name tag: players learn what an orb does BEFORE touching it
+	pcall(function()
+		local bb = Instance.new("BillboardGui")
+		bb.Size = UDim2.fromOffset(130, 26)
+		bb.StudsOffset = Vector3.new(0, 2.6, 0)
+		bb.MaxDistance = 110
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.fromScale(1, 1)
+		l.Font = Enum.Font.GothamBold
+		l.TextScaled = true
+		l.TextColor3 = ptype.color
+		l.TextStrokeTransparency = 0.35
+		l.Text = ptype.emoji .. " " .. ptype.name
+		l.Parent = bb
+		bb.Parent = orb
+	end)
 	orb:SetAttribute("BaseY", spot.Y)
 	local light = Instance.new("PointLight")
 	light.Color = ptype.color

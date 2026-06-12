@@ -478,9 +478,18 @@ function HudUI.setCharge(frac)
 	end
 end
 
-function HudUI.possession(mine)
-	if ballChip then
-		ballChip.Visible = mine and true or false
+function HudUI.possession(mine, team)
+	if not ballChip then
+		return
+	end
+	if mine then
+		ballChip.Text = "⚽ You have the ball!"
+		ballChip.Visible = true
+	elseif team == "Red" or team == "Blue" then
+		ballChip.Text = (team == "Red") and "⚽ RED have it" or "⚽ BLUE have it"
+		ballChip.Visible = true
+	else
+		ballChip.Visible = false -- loose ball: it's anyone's
 	end
 end
 
@@ -513,18 +522,37 @@ function HudUI.progression(data)
 	lastLevel = data.level or 1
 end
 
+-- toasts queue instead of overwriting (a goal + a nutmeg in the same second
+-- used to eat each other); the queue stays short so messages never lag play
+local toastQueue = {}
+local toastShowing = false
+local function showNextToast()
+	local nextText = table.remove(toastQueue, 1)
+	if nextText == nil then
+		toastShowing = false
+		if toastLabel then
+			toastLabel.Visible = false
+		end
+		return
+	end
+	toastShowing = true
+	toastLabel.Text = nextText
+	toastLabel.Visible = true
+	toastLabel.TextTransparency = 0
+	task.delay(2.1, showNextToast)
+end
+
 function HudUI.toast(text)
 	if not toastLabel then
 		return
 	end
-	toastLabel.Text = text or ""
-	toastLabel.Visible = true
-	toastLabel.TextTransparency = 0
-	task.delay(2.6, function()
-		if toastLabel.Text == text then
-			toastLabel.Visible = false
-		end
-	end)
+	if #toastQueue >= 3 then
+		table.remove(toastQueue, 1) -- drop the oldest; stay current
+	end
+	table.insert(toastQueue, text or "")
+	if not toastShowing then
+		showNextToast()
+	end
 end
 
 return HudUI

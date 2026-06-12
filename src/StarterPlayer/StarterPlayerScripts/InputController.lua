@@ -131,7 +131,9 @@ function InputController.start(hud)
 			end
 			return Enum.ContextActionResult.Pass
 		end, true, s.key, s.pad)
-		ContextActionService:SetTitle("GN_Skill_" .. id, string.split(s.name, " ")[1])
+		-- friendly one-word touch titles: a 7-year-old should guess the move
+		local TOUCH_TITLES = { elastico = "Dash", roulette = "Spin", rainbow = "Flick", chop = "Chop", fakeshot = "Fake" }
+		ContextActionService:SetTitle("GN_Skill_" .. id, TOUCH_TITLES[id] or string.split(s.name, " ")[1])
 	end
 
 	-- TOUCH LAYOUT: with 8 actions, the default auto-arc overlaps itself on a
