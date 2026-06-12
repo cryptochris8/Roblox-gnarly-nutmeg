@@ -74,6 +74,7 @@ GameConfig.Dribble = {
 	Offset = 4,              -- studs ahead of the carrier
 	Responsiveness = 12,     -- P-gain steering the ball toward the lead point
 	MaxSpeed = 50,           -- cap on dribble steering speed (keeps pace with a sprint)
+	LeashRadius = 14,        -- server force-looses a human-steered ball that strays this far
 }
 
 -- ---- Kicking (scaled for the larger pitch; TUNE in playtest) ---------------

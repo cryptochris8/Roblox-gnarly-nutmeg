@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local BallCarry = require(Shared:WaitForChild("BallCarry"))
 
 local WorldService = require(script.Parent.WorldService)
 local TeamService = require(script.Parent.TeamService)
@@ -150,13 +151,26 @@ local function setPossession(model: Model?)
 		expectedReceiver = nil -- the pass (if any) has been received
 		model:SetAttribute("CarrySince", os.clock()) -- AI uses this for its dribble budget
 	end
-	-- The ball is ALWAYS a real physics body now (rolls/bounces); possession just
-	-- decides whether carry() steers it. Keep it server-owned for authority.
+	-- The ball is ALWAYS a real physics body (rolls/bounces); possession decides
+	-- who SIMULATES it. A human carrier's own client network-owns the ball and
+	-- steers it locally (CarryController + Shared/BallCarry) — a server-steered
+	-- ball renders in the past on the carrier's screen and visibly drags BEHIND
+	-- them. Bot-carried and loose balls are server-owned. The server still owns
+	-- possession, every kick, and the carry() leash; every release path
+	-- (pass/shot/nutmeg/tackle/restart/reset) re-enters here, reclaiming
+	-- ownership BEFORE its release velocity is applied.
 	if ball then
 		ball.CanCollide = true
 		ball.Anchored = false
+		local owner: Player? = nil
+		if model and uid ~= 0 then
+			local plr = Players:GetPlayerByUserId(uid)
+			if plr and plr.Character == model then
+				owner = plr
+			end
+		end
 		pcall(function()
-			(ball :: any):SetNetworkOwner(nil)
+			(ball :: any):SetNetworkOwner(owner)
 		end)
 	end
 	if possessionEvent then
@@ -716,32 +730,32 @@ local function carry()
 		setPossession(nil)
 		return
 	end
-	-- Lead the ball in the direction the carrier is MOVING (fall back to facing
-	-- when standing still) so it rolls out in front, not behind.
-	local dir = hum.MoveDirection
-	dir = Vector3.new(dir.X, 0, dir.Z)
-	if dir.Magnitude < 0.1 then
-		local f = root.CFrame.LookVector
-		dir = Vector3.new(f.X, 0, f.Z)
-	end
-	dir = (dir.Magnitude > 0.001) and dir.Unit or Vector3.new(0, 0, 1)
-
-	local radius = BALL.Diameter / 2
-	local leadX = root.Position.X + dir.X * DRIB.Offset
-	local leadZ = root.Position.Z + dir.Z * DRIB.Offset
-	local toLead = Vector3.new(leadX - ball.Position.X, 0, leadZ - ball.Position.Z)
-	local hv = toLead * DRIB.Responsiveness
-	if hv.Magnitude > DRIB.MaxSpeed then
-		hv = hv.Unit * DRIB.MaxSpeed
-	end
-	local cur = ball.AssemblyLinearVelocity
-	ball.AssemblyLinearVelocity = Vector3.new(hv.X, cur.Y, hv.Z)
-	-- spin the ball so it visibly rolls while dribbling
-	if hv.Magnitude > 1 then
-		local axis = Vector3.yAxis:Cross(hv)
-		if axis.Magnitude > 0.001 then
-			ball.AssemblyAngularVelocity = axis.Unit * (hv.Magnitude / radius)
+	local b = ball :: Part
+	if ((c:GetAttribute("UserId") :: number?) or 0) ~= 0 then
+		-- a HUMAN carrier's own client steers the ball (it network-owns the
+		-- assembly — see setPossession); the server just keeps it honest: if
+		-- the ball strays past the leash (tampering, or a physics blow-up),
+		-- it is simply loose again and normal pickup rules apply
+		local d = b.Position - root.Position
+		if Vector3.new(d.X, 0, d.Z).Magnitude > DRIB.LeashRadius or math.abs(d.Y) > 12 then
+			setPossession(nil)
 		end
+		return
+	end
+	-- BOT carriers simulate here on the server: steer directly
+	local hv = BallCarry.steer(DRIB, {
+		ballPos = b.Position,
+		rootPos = root.Position,
+		moveDir = hum.MoveDirection,
+		lookDir = root.CFrame.LookVector,
+		carrierVel = root.AssemblyLinearVelocity,
+	})
+	local cur = b.AssemblyLinearVelocity
+	b.AssemblyLinearVelocity = Vector3.new(hv.X, cur.Y, hv.Z)
+	-- spin the ball so it visibly rolls while dribbling
+	local spin = BallCarry.rollSpin(hv, BALL.Diameter / 2)
+	if spin then
+		b.AssemblyAngularVelocity = spin
 	end
 end
 
