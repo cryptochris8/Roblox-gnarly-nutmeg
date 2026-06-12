@@ -710,6 +710,19 @@ local function tuneLighting()
 		atmo.Decay = Color3.fromRGB(106, 112, 125)
 		atmo.Glare = 0.2
 		atmo.Haze = 1.2
+		-- a seasonal cast over the bowl (composes with the per-match
+		-- day/sunset/night variants, which only move ClockTime/Brightness)
+		local month = tonumber(os.date("!*t").month) or 6
+		if month == 12 or month <= 2 then
+			atmo.Color = Color3.fromRGB(196, 214, 230) -- winter chill
+			Lighting.OutdoorAmbient = Color3.fromRGB(128, 138, 152)
+		elseif month >= 9 then
+			atmo.Color = Color3.fromRGB(222, 204, 186) -- autumn gold
+			Lighting.OutdoorAmbient = Color3.fromRGB(152, 140, 126)
+		elseif month >= 6 then
+			atmo.Color = Color3.fromRGB(206, 216, 224) -- high summer haze
+			Lighting.OutdoorAmbient = Color3.fromRGB(146, 146, 140)
+		end
 		atmo.Parent = Lighting
 		Lighting.ClockTime = 14
 		Lighting.Brightness = 2.5

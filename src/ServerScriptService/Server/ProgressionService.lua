@@ -297,6 +297,12 @@ local function handleStreak(player: Player)
 	if s.lastDay == today - 1 then
 		s.count = (tonumber(s.count) or 0) + 1
 	else
+		-- the streak resets, but coming back after days away is WELCOMED,
+		-- not punished — a soft landing so returning never feels bad
+		if (tonumber(s.lastDay) or 0) > 0 and today - s.lastDay >= 3 then
+			toastTo(player, "👋 Welcome back! We saved your boots — here's +75 XP")
+			ProgressionService.addXP(player, 75, "welcome back")
+		end
 		s.count = 1
 	end
 	s.lastDay = today

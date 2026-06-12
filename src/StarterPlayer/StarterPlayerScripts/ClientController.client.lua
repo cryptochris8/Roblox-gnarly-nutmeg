@@ -20,11 +20,13 @@ local InputController = require(scripts:WaitForChild("InputController"))
 local CameraDirector = require(scripts:WaitForChild("CameraDirector"))
 local CarryController = require(scripts:WaitForChild("CarryController"))
 local GoalFx = require(scripts:WaitForChild("GoalFx"))
+local PhotoMode = require(scripts:WaitForChild("PhotoMode"))
 
 HudUI.mount(playerGui)
 MenuUI.mount(playerGui)
 QuestUI.mount(playerGui)
 InputController.start(HudUI)
+PhotoMode.init()
 
 Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 	HudUI.updateMatch(snap)
@@ -72,6 +74,7 @@ local function celebrateLocally(isScorer)
 end
 
 Remotes.get(Remotes.GoalScored).OnClientEvent:Connect(function(info)
+	PhotoMode.exit() -- the replay takes the camera
 	task.spawn(CameraDirector.goalReplay, info)
 	task.spawn(GoalFx.goal, info)
 	if info and player.Team and player.Team.Name == info.team then
