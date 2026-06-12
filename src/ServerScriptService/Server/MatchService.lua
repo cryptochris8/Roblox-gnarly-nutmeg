@@ -36,6 +36,7 @@ local MatchService = {}
 -- identities here) and once per finished match with the winning team name.
 MatchService.onMatchSetup = nil :: (() -> ())?
 MatchService.onMatchFinished = nil :: ((winnerTeam: string?) -> ())?
+MatchService.onSnapshot = nil :: ((snap: any) -> ())? -- stadium big screens
 -- Tournament presentation, broadcast in every snapshot when set.
 MatchService.roundLabel = nil :: string?
 MatchService.board = nil :: { string }?
@@ -83,8 +84,14 @@ local function snapshot()
 end
 
 local function broadcastNow()
+	local snap = snapshot()
 	if matchStateEvent then
-		matchStateEvent:FireAllClients(snapshot())
+		matchStateEvent:FireAllClients(snap)
+	end
+	-- the stadium's own big screens ride the same snapshot (wired in Main)
+	local hook = MatchService.onSnapshot
+	if hook then
+		pcall(hook, snap)
 	end
 end
 

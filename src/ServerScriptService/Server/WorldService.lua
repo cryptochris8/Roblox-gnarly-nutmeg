@@ -121,16 +121,62 @@ local function buildGoalFrame(lineZ: number, inwardDir: number, parent: Instance
 		COLOR_POST,
 		parent
 	)
-	local net = block(
-		"GoalNet",
-		Vector3.new(GOAL.Width, GOAL.Height, GOAL.Depth),
-		CFrame.new(CX, FIELD.GroundY + GOAL.Height / 2, lineZ - inwardDir * GOAL.Depth / 2),
-		Color3.fromRGB(220, 220, 230),
-		parent
-	)
-	net.Transparency = 0.6
-	net.CanCollide = false
-	net.Material = Enum.Material.ForceField
+	-- BOX NET: invisible dead-bounce collider panels (a scored shot billows in
+	-- and drops instead of flying through) wrapped in a white string lattice
+	-- that reads as a real net from every angle. ~60 thin anchored strands per
+	-- goal, no shadows, no collisions - negligible cost.
+	local netDepth = GOAL.Depth
+	local backZ = lineZ - inwardDir * netDepth
+	local topY = FIELD.GroundY + GOAL.Height
+	local midY = FIELD.GroundY + GOAL.Height / 2
+	local midZ = lineZ - inwardDir * netDepth / 2
+	local deadNet = PhysicalProperties.new(0.7, 0.8, 0.05, 1, 1)
+	local function catchPanel(name: string, size: Vector3, cf: CFrame)
+		local p = block(name, size, cf, COLOR_POST, parent)
+		p.Transparency = 1
+		p.CanCollide = true
+		p.CustomPhysicalProperties = deadNet
+	end
+	catchPanel("NetCatchBack", Vector3.new(GOAL.Width, GOAL.Height, 0.4), CFrame.new(CX, midY, backZ))
+	catchPanel("NetCatchTop", Vector3.new(GOAL.Width, 0.4, netDepth), CFrame.new(CX, topY + 0.2, midZ))
+	catchPanel("NetCatchSideL", Vector3.new(0.4, GOAL.Height, netDepth), CFrame.new(CX - halfW - 0.2, midY, midZ))
+	catchPanel("NetCatchSideR", Vector3.new(0.4, GOAL.Height, netDepth), CFrame.new(CX + halfW + 0.2, midY, midZ))
+
+	local stringColor = Color3.fromRGB(246, 246, 250)
+	local function strand(size: Vector3, cf: CFrame)
+		local s = block("NetStrand", size, cf, stringColor, parent)
+		s.CanCollide = false
+		s.CastShadow = false
+		s.Transparency = 0.08
+	end
+	local t = 0.12
+	local nx = math.max(6, math.floor(GOAL.Width / 1.4))
+	local ny = math.max(3, math.floor(GOAL.Height / 1.4))
+	local nz = math.max(2, math.floor(netDepth / 1.5))
+	-- back panel
+	for i = 0, nx do
+		strand(Vector3.new(t, GOAL.Height, t), CFrame.new(CX - halfW + i * (GOAL.Width / nx), midY, backZ))
+	end
+	for j = 0, ny do
+		strand(Vector3.new(GOAL.Width, t, t), CFrame.new(CX, FIELD.GroundY + j * (GOAL.Height / ny), backZ))
+	end
+	-- roof panel
+	for i = 0, nx do
+		strand(Vector3.new(t, t, netDepth), CFrame.new(CX - halfW + i * (GOAL.Width / nx), topY, midZ))
+	end
+	for k = 0, nz do
+		strand(Vector3.new(GOAL.Width, t, t), CFrame.new(CX, topY, lineZ - inwardDir * k * (netDepth / nz)))
+	end
+	-- side panels
+	for _, side in ipairs({ -1, 1 }) do
+		local x = CX + side * halfW
+		for k = 0, nz do
+			strand(Vector3.new(t, GOAL.Height, t), CFrame.new(x, midY, lineZ - inwardDir * k * (netDepth / nz)))
+		end
+		for j = 0, ny do
+			strand(Vector3.new(t, t, netDepth), CFrame.new(x, FIELD.GroundY + j * (GOAL.Height / ny), midZ))
+		end
+	end
 end
 
 local function buildMarkings(parent: Instance)
@@ -406,6 +452,129 @@ local function buildHoardings(parent: Instance)
 	end)
 end
 
+-- Live big-screens behind each end. MatchService feeds these via the
+-- onSnapshot hook (wired in Main) every broadcast, so the stadium itself
+-- shows the score, the clock and the competition line.
+type Jumbo = { score: TextLabel, clock: TextLabel, ticker: TextLabel }
+local jumbos: { Jumbo } = {}
+
+local function buildJumbotrons(parent: Instance)
+	table.clear(jumbos)
+	pcall(function()
+		local tiers, tierD = 6, 5
+		local standBase = RUNOFF + WALL_T
+		local behind = standBase + tiers * tierD + 10
+		local y = FIELD.GroundY + 32
+		for _, ez in ipairs({ FIELD.MaxZ + behind, FIELD.MinZ - behind }) do
+			local pos = Vector3.new(CX, y, ez)
+			local cf = CFrame.lookAt(pos, Vector3.new(CX, y - 5, CZ))
+			local frame = block("JumboFrame", Vector3.new(32, 16, 1.6), cf, Color3.fromRGB(24, 27, 34), parent)
+			frame.Material = Enum.Material.Metal
+			for _, lx in ipairs({ -13, 13 }) do
+				block("JumboLeg", Vector3.new(1.6, y - FIELD.GroundY, 1.6),
+					CFrame.new(CX + lx, FIELD.GroundY + (y - FIELD.GroundY) / 2, ez), Color3.fromRGB(45, 49, 58), parent)
+			end
+			local screen = block("JumboScreen", Vector3.new(29, 13.4, 0.5), cf * CFrame.new(0, 0.4, -0.9), Color3.fromRGB(8, 10, 14), parent)
+			screen.Material = Enum.Material.SmoothPlastic
+			local gui = Instance.new("SurfaceGui")
+			gui.Face = Enum.NormalId.Front
+			gui.CanvasSize = Vector2.new(1160, 540)
+			gui.LightInfluence = 0
+			gui.Brightness = 2
+			gui.Parent = screen
+			local function label(yFrac: number, hFrac: number, size: number, color: Color3): TextLabel
+				local l = Instance.new("TextLabel")
+				l.BackgroundTransparency = 1
+				l.Position = UDim2.fromScale(0.02, yFrac)
+				l.Size = UDim2.fromScale(0.96, hFrac)
+				l.Font = Enum.Font.GothamBlack
+				l.TextScaled = true
+				l.TextColor3 = color
+				l.RichText = true
+				l.Text = ""
+				local cap = Instance.new("UITextSizeConstraint")
+				cap.MaxTextSize = size
+				cap.Parent = l
+				l.Parent = gui
+				return l
+			end
+			jumbos[#jumbos + 1] = {
+				score = label(0.03, 0.5, 190, Color3.fromRGB(255, 255, 255)),
+				clock = label(0.55, 0.26, 100, Color3.fromRGB(120, 235, 130)),
+				ticker = label(0.82, 0.16, 64, Color3.fromRGB(245, 196, 60)),
+			}
+		end
+	end)
+end
+
+local function hex(c: Color3?): string
+	if not c then
+		return "FFFFFF"
+	end
+	return string.format("%02X%02X%02X",
+		math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+end
+
+function WorldService.updateScoreboards(snap: any)
+	pcall(function()
+		local scoreText = string.format(
+			'<font color="#%s">%s</font>  %d - %d  <font color="#%s">%s</font>',
+			hex(snap.redColor), tostring(snap.redName or "RED"), tonumber(snap.red) or 0,
+			tonumber(snap.blue) or 0, hex(snap.blueColor), tostring(snap.blueName or "BLUE"))
+		local phase = tostring(snap.phase or "Waiting")
+		local clockText: string
+		if phase == "Playing" or phase == "Countdown" then
+			local half = tonumber(snap.half) or 1
+			local halfLabel = (half >= 3 and "GOLDEN GOAL") or (half == 2 and "2ND HALF") or "1ST HALF"
+			local t = math.max(0, tonumber(snap.timeLeft) or 0)
+			clockText = string.format("%s   %d:%02d", halfLabel, math.floor(t / 60), t % 60)
+		elseif phase == "HalfTime" then
+			clockText = "HALF TIME"
+		elseif phase == "Finished" then
+			clockText = tostring(snap.result or "FULL TIME")
+		else
+			clockText = "NEXT MATCH COMING UP"
+		end
+		local tickerText = tostring(snap.roundLabel or "GNARLY NUTMEG  •  ATHLETE DOMAINS ARENA")
+		for _, j in ipairs(jumbos) do
+			j.score.Text = scoreText
+			j.clock.Text = clockText
+			j.ticker.Text = tickerText
+		end
+	end)
+end
+
+-- Two roofed dugouts flanking halfway on the west touchline, each with a
+-- row of seated subs in team colours (same imposter style as the crowd).
+local function buildDugouts(parent: Instance)
+	pcall(function()
+		local x = FIELD.MinX - RUNOFF * 0.55
+		local benches = {
+			{ z = CZ - 17, color = Color3.fromRGB(175, 55, 55) },
+			{ z = CZ + 17, color = Color3.fromRGB(50, 80, 170) },
+		}
+		for _, b in ipairs(benches) do
+			block("DugoutBack", Vector3.new(0.8, 5.4, 15), CFrame.new(x - 2.4, FIELD.GroundY + 2.7, b.z), Color3.fromRGB(38, 42, 52), parent)
+			block("DugoutSideA", Vector3.new(4.6, 5.4, 0.8), CFrame.new(x - 0.3, FIELD.GroundY + 2.7, b.z - 7.5), Color3.fromRGB(38, 42, 52), parent)
+			block("DugoutSideB", Vector3.new(4.6, 5.4, 0.8), CFrame.new(x - 0.3, FIELD.GroundY + 2.7, b.z + 7.5), Color3.fromRGB(38, 42, 52), parent)
+			local roof = block("DugoutRoof", Vector3.new(5.4, 0.35, 16), CFrame.new(x - 0.2, FIELD.GroundY + 5.6, b.z), Color3.fromRGB(190, 215, 240), parent)
+			roof.Material = Enum.Material.Glass
+			roof.Transparency = 0.35
+			local seat = block("DugoutBench", Vector3.new(2.0, 1.0, 13), CFrame.new(x - 1.2, FIELD.GroundY + 0.9, b.z), Color3.fromRGB(70, 75, 88), parent)
+			seat.Material = Enum.Material.SmoothPlastic
+			for i = 1, 4 do
+				local sz = b.z - 4.5 + (i - 1) * 3
+				local torso = block("SubTorso", Vector3.new(1.5, 1.7, 1.0), CFrame.new(x - 1.2, FIELD.GroundY + 2.3, sz), b.color, parent)
+				torso.CanCollide = false
+				torso.CastShadow = false
+				local head = block("SubHead", Vector3.new(0.9, 0.9, 0.9), CFrame.new(x - 1.2, FIELD.GroundY + 3.6, sz), Color3.fromRGB(232, 190, 152), parent)
+				head.CanCollide = false
+				head.CastShadow = false
+			end
+		end
+	end)
+end
+
 local function tuneLighting()
 	pcall(function()
 		-- The template ships a broken/black skybox: with environment lighting on,
@@ -503,6 +672,8 @@ function WorldService.build(): World
 	buildCrowd(pitch)
 	buildCornerFlags(pitch)
 	buildHoardings(pitch)
+	buildJumbotrons(pitch)
+	buildDugouts(pitch)
 	tuneLighting()
 
 	local spawnPad = Instance.new("SpawnLocation")

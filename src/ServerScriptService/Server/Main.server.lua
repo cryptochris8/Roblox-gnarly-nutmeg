@@ -47,6 +47,8 @@ MatchService.init(world)           -- match state machine + continuous match loo
 -- the tournament rides the match loop through these two hooks
 MatchService.onMatchSetup = TournamentService.beforeMatch
 MatchService.onMatchFinished = TournamentService.afterMatch
+-- the stadium jumbotrons mirror every match-state broadcast
+MatchService.onSnapshot = WorldService.updateScoreboards
 
 -- 4) Cross-service hooks + client input intents. The server validates everything.
 local STA = GameConfig.Stamina
