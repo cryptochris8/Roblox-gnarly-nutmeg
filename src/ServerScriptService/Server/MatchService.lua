@@ -183,14 +183,24 @@ local function celebrate(scoreTeam: string)
 			end
 		end
 	end
-	-- the scorer dances; nearby teammates join in
+	-- the scorer dances; nearby teammates join in — and everyone TURNS to face
+	-- the pitch first, because the replay dolly films from the centre side and
+	-- a scorer who just ran at the net would otherwise show the camera his back
 	local scorerModel = BallService.getLastKickerModel()
 	for _, f in ipairs(BallService.listFootballers()) do
 		if f.team == scoreTeam then
-			if f.model == scorerModel then
-				BotAnimationService.celebrate(f.model, "dance")
-			elseif scorerModel and (f.root.Position - (scorerModel :: Model):GetPivot().Position).Magnitude < 32 then
-				BotAnimationService.celebrate(f.model, "cheer")
+			local isScorer = f.model == scorerModel
+			local nearParty = scorerModel
+				and (f.root.Position - (scorerModel :: Model):GetPivot().Position).Magnitude < 32
+			if isScorer or nearParty then
+				pcall(function()
+					local p = f.root.Position
+					local look = Vector3.new(GameConfig.Field.CenterX - p.X, 0, GameConfig.Field.CenterZ - p.Z)
+					if look.Magnitude > 1 then
+						f.root.CFrame = CFrame.lookAt(p, p + look.Unit)
+					end
+				end)
+				BotAnimationService.celebrate(f.model, isScorer and "dance" or "cheer")
 			end
 		end
 	end

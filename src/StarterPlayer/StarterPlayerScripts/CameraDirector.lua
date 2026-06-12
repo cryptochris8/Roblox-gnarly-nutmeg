@@ -87,7 +87,9 @@ function CameraDirector.goalReplay(info)
 		local char = plr and plr.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart")
 		if root then
-			focus = focus:Lerp(root.Position, 0.5) + Vector3.new(0, 1, 0)
+			-- favour the scorer and frame at chest height: the server turns the
+			-- celebration to face the pitch, so this side films their FRONT
+			focus = focus:Lerp(root.Position, 0.6) + Vector3.new(0, 2.2, 0)
 		end
 		flying = true
 		mode = "goal"
@@ -95,8 +97,8 @@ function CameraDirector.goalReplay(info)
 		local towardCentre = Vector3.new(-focus.X, 0, -focus.Z)
 		towardCentre = towardCentre.Magnitude > 1 and towardCentre.Unit or Vector3.new(0, 0, 1)
 		local side = Vector3.new(-towardCentre.Z, 0, towardCentre.X)
-		local from = focus + towardCentre * 16 - side * 14 + Vector3.new(0, 5, 0)
-		local to = focus + towardCentre * 17 + side * 14 + Vector3.new(0, 8, 0)
+		local from = focus + towardCentre * 13 - side * 11 + Vector3.new(0, 4, 0)
+		local to = focus + towardCentre * 14 + side * 11 + Vector3.new(0, 6.5, 0)
 		cam.CFrame = CFrame.lookAt(from, focus)
 		activeTween = TweenService:Create(
 			cam,
