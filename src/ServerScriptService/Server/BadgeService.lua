@@ -14,7 +14,7 @@ local IDS = {
 	HatTrick = 4087072710827826,
 	FirstNutmeg = 386665015462925,
 	CupWinner = 1224844358661312,
-	LegendSlayer = 0,
+	LegendSlayer = 3182441893425718,
 }
 
 local function award(player: Player, key: string)
