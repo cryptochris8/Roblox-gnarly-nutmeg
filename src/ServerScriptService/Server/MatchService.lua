@@ -27,6 +27,7 @@ local BotAnimationService = require(script.Parent.BotAnimationService)
 local ProgressionService = require(script.Parent.ProgressionService)
 local DifficultyService = require(script.Parent.DifficultyService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local BadgeService = require(script.Parent.BadgeService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
@@ -229,6 +230,10 @@ local function onGoal(scoreTeam: string)
 	if scorerName and scorerUid ~= 0 then
 		scorerTally[scorerName] = (scorerTally[scorerName] or 0) + 1
 		streak = scorerTally[scorerName]
+		local scorerPlr = Players:GetPlayerByUserId(scorerUid)
+		if scorerPlr then
+			BadgeService.goalStreak(scorerPlr, streak)
+		end
 	end
 	if goldenGoal then
 		goldenWinner = scoreTeam
@@ -630,6 +635,7 @@ local function runMatchLoop()
 				if outcome == "win" then
 					ProgressionService.note(plr, "wins")
 					LeaderboardService.addWin(plr)
+					BadgeService.win(plr, DifficultyService.get().tier)
 				end
 				if outcome ~= "draw" then
 					ProgressionService.noteLeagueResult(plr, outcome == "win")

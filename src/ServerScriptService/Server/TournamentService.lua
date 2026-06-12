@@ -32,6 +32,7 @@ local PlayerDataService = require(script.Parent.PlayerDataService)
 local AudioService = require(script.Parent.AudioService)
 local BallService = require(script.Parent.BallService)
 local BotAnimationService = require(script.Parent.BotAnimationService)
+local BadgeService = require(script.Parent.BadgeService)
 
 local ROUND_NAMES = { "QUARTERFINAL", "SEMIFINAL", "FINAL" }
 local LOBBY_SECONDS = 20
@@ -215,6 +216,7 @@ local function ceremony(champion: Nations.Nation, winnerTeam: string?)
 				local a = TeamService.getAssignment(plr)
 				if a and a.team == winnerTeam then
 					PlayerDataService.addTrophy(plr)
+					BadgeService.cupWin(plr)
 				end
 			end
 		end

@@ -28,6 +28,7 @@ local ProgressionService = require(script.Parent.ProgressionService)
 local MatchService = require(script.Parent.MatchService)
 local TournamentService = require(script.Parent.TournamentService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local BadgeService = require(script.Parent.BadgeService)
 
 -- 3) Initialize, in dependency order.
 PlayerDataService.init() -- leaderstats + persistence on join/leave
@@ -75,6 +76,7 @@ BallService.onNutmeg = function(byModel, _victimModel)
 		if plr then
 			PlayerService.burst(plr, NUTMEG.BurstMultiplier, NUTMEG.BurstSeconds)
 			PlayerDataService.addNutmeg(plr)
+			BadgeService.nutmeg(plr)
 		end
 		name = plr and plr.DisplayName or "Someone"
 	else
