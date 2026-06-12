@@ -164,6 +164,13 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 		if pick <= #HAIR then
 			desc.HairAccessory = tostring(HAIR[pick])
 		end
+		-- classic faces (each verified to load as a Decal:face); one in six
+		-- keeps the stock look
+		local FACES = { 8329679, 7074729, 20418658, 28999228, 21311601 }
+		local fpick = math.random(1, #FACES + 1)
+		if fpick <= #FACES then
+			desc.Face = FACES[fpick]
+		end
 		model = Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 	end)
 	if not ok or not model then

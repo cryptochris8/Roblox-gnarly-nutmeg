@@ -38,10 +38,19 @@ local COMMENTARY_IDS: { [string]: { number } } = {
 	fullTime = { 136770975225532 }, -- "It's All Over"
 }
 
+-- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);
+-- 0 = not uploaded yet, silently skipped
+local CHANT_IDS = {
+	melodic = 86240961980688, -- swells with late-half tension (was in review at bake time)
+	ultras = 75352524812158, -- erupts on goals
+}
+
 local CROWD_BASE_VOLUME = 0.22
 local COMMENTARY_GAP = 4 -- seconds between non-priority lines
 
 local crowd: Sound? = nil
+local chantMelodic: Sound? = nil
+local chantUltras: Sound? = nil
 local oneShots: { [string]: Sound } = {}
 local kickVariants: { Sound } = {}
 local commentaryPools: { [string]: { Sound } } = {}
@@ -96,6 +105,14 @@ function AudioService.goal(streak: number?)
 		local kind = (streak and streak >= 2 and #(commentaryPools.onFire or {}) > 0) and "onFire" or "goal"
 		AudioService.commentary(kind, true)
 	end)
+	-- the ultras erupt, then settle over the celebration
+	pcall(function()
+		local u = chantUltras
+		if u then
+			u.Volume = 0.34
+			TweenService:Create(u, TweenInfo.new(4.5, Enum.EasingStyle.Quad), { Volume = 0 }):Play()
+		end
+	end)
 	pcall(function()
 		local c = crowd
 		if c then
@@ -111,13 +128,18 @@ function AudioService.ooh()
 end
 
 -- Crowd tension: the ambient loop leans in as the clock runs down
--- (0 = normal murmur, 1 = full final-minute buzz).
+-- (0 = normal murmur, 1 = full final-minute buzz), and the melodic
+-- chant bed rises with it.
 function AudioService.tension(frac: number)
 	pcall(function()
+		frac = math.clamp(frac, 0, 1)
 		local c = crowd
 		if c then
-			c.Volume = CROWD_BASE_VOLUME * (1 + 0.9 * math.clamp(frac, 0, 1))
-			c.PlaybackSpeed = 1 + 0.06 * math.clamp(frac, 0, 1)
+			c.Volume = CROWD_BASE_VOLUME * (1 + 0.9 * frac)
+			c.PlaybackSpeed = 1 + 0.06 * frac
+		end
+		if chantMelodic then
+			chantMelodic.Volume = 0.16 * frac
 		end
 	end)
 end
@@ -170,6 +192,15 @@ function AudioService.init()
 				pool[i] = makeSound("Commentary_" .. kind .. i, id, 0.9, false)
 			end
 			commentaryPools[kind] = pool
+		end
+		-- chant beds idle at zero volume until tension/goals raise them
+		if CHANT_IDS.melodic ~= 0 then
+			chantMelodic = makeSound("ChantMelodic", CHANT_IDS.melodic, 0, true)
+			;(chantMelodic :: Sound):Play()
+		end
+		if CHANT_IDS.ultras ~= 0 then
+			chantUltras = makeSound("ChantUltras", CHANT_IDS.ultras, 0, true)
+			;(chantUltras :: Sound):Play()
 		end
 	end)
 end
