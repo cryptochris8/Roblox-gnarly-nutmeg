@@ -305,6 +305,35 @@ local function decideBot(entry: BotEntry)
 			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), DifficultyService.get().botShotSpread)
 			return
 		end
+		-- GIVE-AND-GO: a human just slipped me this ball and kept their run
+		-- going — play the one-two straight back into their path while it's on
+		local returnUid = (model:GetAttribute("ReturnToUserId") :: number?) or 0
+		if returnUid ~= 0 then
+			local armed = os.clock() < ((model:GetAttribute("ReturnUntil") :: number?) or 0)
+			local returned = false
+			if armed then
+				local plr = Players:GetPlayerByUserId(returnUid)
+				local prChar = plr and plr.Character
+				local prRoot = prChar and prChar:FindFirstChild("HumanoidRootPart")
+				if prRoot and prRoot:IsA("BasePart") then
+					local pv = prRoot.AssemblyLinearVelocity
+					local running = Vector3.new(pv.X, 0, pv.Z).Magnitude > 10
+					local d = hdist(prRoot.Position, myPos)
+					local intoSpace = hdist(prRoot.Position, targetGoal) < dGoal + 8
+					if running and d > 10 and d <= GameConfig.Kick.PassMaxRange and intoSpace then
+						returned = BallService.passFrom(model, prChar)
+					end
+				end
+			end
+			if returned or not armed then
+				model:SetAttribute("ReturnToUserId", nil)
+				model:SetAttribute("ReturnUntil", nil)
+			end
+			if returned then
+				model:SetAttribute("PlantUntil", os.clock() + 0.3)
+				return
+			end
+		end
 		local pressured = false
 		for _, f in ipairs(BallService.listFootballers()) do
 			if f.team ~= team and hdist(f.root.Position, myPos) < 7 then

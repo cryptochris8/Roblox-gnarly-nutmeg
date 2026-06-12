@@ -91,6 +91,14 @@ GameConfig.Kick = {
 	HumanShotSpreadDeg = 2,  -- slight human inaccuracy (bots use ~7)
 	ChargeSeconds = 1.5,     -- hold time from min -> max power
 	AfterKickGraceSeconds = 0.25,
+	-- Curling finesse: a PLACED shot (sweet-spot charge, room to work) sets off
+	-- outside the aim line and bends back in around the keeper; blasted shots
+	-- (past CurlMaxCharge) fly straight and true. ELITE+ bots curl theirs too.
+	CurlDeg = 9,             -- outward set-off angle the curl bends back through
+	CurlMinCharge = 0.2,     -- below this it's a toe-poke - no shape on it
+	CurlMaxCharge = 0.7,     -- above this it's driven - straight
+	CurlMinDist = 14,        -- inside this there's no room to bend one
+	CurlBotTier = 4,         -- bot leagues from this tier curl their corner picks
 }
 
 -- ---- Dead-ball restarts (throw-ins / corners / goal kicks) ------------------

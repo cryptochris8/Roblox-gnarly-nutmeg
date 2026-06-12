@@ -139,8 +139,12 @@ end
 
 -- ---- possession ------------------------------------------------------------
 
+-- a live curling shot: lateral acceleration applied while the ball flies
+local shotCurve: { accel: Vector3, expire: number }? = nil
+
 local function setPossession(model: Model?)
 	carrier = model
+	shotCurve = nil -- whatever the ball was doing in the air is over
 	local uid = 0
 	if model then
 		uid = (model:GetAttribute("UserId") :: number?) or 0
@@ -282,14 +286,27 @@ end
 -- Pass to the best teammate (or clear toward goal if none). Power scales with
 -- distance, the ball is led to where the receiver WILL be, and the receiver
 -- gets a reception-assist pickup bonus so passes stick. Returns true if kicked.
-function BallService.passFrom(fromModel: Model): boolean
+function BallService.passFrom(fromModel: Model, forcedReceiver: Model?): boolean
 	if carrier ~= fromModel or not ball then
 		return false
 	end
 	local team = (fromModel:GetAttribute("Team") :: string?) or ""
 	local ballPos = ball.Position
 	local useFacing = fromModel:GetAttribute("IsBot") ~= true
-	local target = bestTeammate(fromModel, team, ballPos, useFacing)
+	-- a forced receiver (the give-and-go return) skips the teammate heuristic
+	local target: Footballer? = nil
+	if forcedReceiver then
+		for _, f in ipairs(BallService.listFootballers()) do
+			if f.model == forcedReceiver and f.team == team then
+				local rel = Vector3.new(f.root.Position.X - ballPos.X, 0, f.root.Position.Z - ballPos.Z)
+				if rel.Magnitude >= 6 and rel.Magnitude <= KICK.PassMaxRange then
+					target = f
+				end
+				break
+			end
+		end
+	end
+	target = target or bestTeammate(fromModel, team, ballPos, useFacing)
 
 	local dir: Vector3
 	local speed: number
@@ -399,9 +416,39 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 		dir = (CFrame.fromAxisAngle(Vector3.yAxis, a) * dir)
 	end
 
-	local v = dir * power + Vector3.yAxis * (power * arc)
-
 	setPossession(nil)
+
+	-- Curling finesse: a placed shot sets off OUTSIDE the aim line and a
+	-- lateral pull bends it back onto the aim point as it arrives — the
+	-- banana around the keeper. Blasted shots stay straight.
+	local wantsCurl: boolean
+	if fromModel:GetAttribute("IsBot") == true then
+		wantsCurl = DifficultyService.get().tier >= KICK.CurlBotTier and math.random() < 0.6
+	else
+		wantsCurl = charge >= KICK.CurlMinCharge and charge <= KICK.CurlMaxCharge
+	end
+	if wantsCurl and distToGoal >= KICK.CurlMinDist then
+		local lateral = Vector3.new(-dir.Z, 0, dir.X) -- horizontal perpendicular
+		local cornerOffset = aimX - goal.X
+		local s: number
+		if math.abs(cornerOffset) < 0.5 then
+			s = (math.random() < 0.5) and 1 or -1 -- dead-centre aim: pick a side
+		else
+			s = (lateral.X * cornerOffset >= 0) and 1 or -1 -- outward = past the corner
+		end
+		local outward = lateral * s
+		local theta = math.rad(KICK.CurlDeg)
+		dir = (dir * math.cos(theta) + outward * math.sin(theta)).Unit
+		-- lateral kinematics: a*t^2/2 cancels v*sin(theta)*t over the flight,
+		-- so the shot re-converges on the aim point right as it gets there
+		local pull = 2 * power * power * math.sin(theta) / math.max(distToGoal, 8)
+		shotCurve = {
+			accel = -outward * pull,
+			expire = os.clock() + math.min(distToGoal / power + 0.4, 2.5),
+		}
+	end
+
+	local v = dir * power + Vector3.yAxis * (power * arc)
 	lastKicker = fromModel
 	expectedReceiver = nil
 	ball.AssemblyLinearVelocity = v
@@ -811,6 +858,15 @@ local function tryPickup()
 		end
 		setPossession(nearest.model)
 		if completedBy then
+			-- a HUMAN finding a BOT arms the GIVE-AND-GO: for a beat the bot
+			-- looks to play it first-time back into the passer's run (AIService)
+			if nearest.isBot then
+				local uid = (completedBy:GetAttribute("UserId") :: number?) or 0
+				if uid ~= 0 then
+					nearest.model:SetAttribute("ReturnToUserId", uid)
+					nearest.model:SetAttribute("ReturnUntil", os.clock() + 3)
+				end
+			end
 			local cb = BallService.onPassComplete
 			if cb then
 				task.spawn(cb, completedBy :: Model, nearest.model)
@@ -930,6 +986,14 @@ function BallService.init(world: WorldService.World)
 		if carrier then
 			carry()
 		elseif not restartActive then
+			local curve = shotCurve
+			if curve then
+				if os.clock() > curve.expire then
+					shotCurve = nil
+				elseif ball then
+					ball.AssemblyLinearVelocity += curve.accel * dt
+				end
+			end
 			tryPickup()
 			applyLooseDrag(dt)
 		end
