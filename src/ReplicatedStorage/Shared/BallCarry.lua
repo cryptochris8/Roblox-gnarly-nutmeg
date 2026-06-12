@@ -15,6 +15,7 @@ export type Tuning = {
 	Offset: number,
 	Responsiveness: number,
 	MaxSpeed: number,
+	SprintKnockOn: number?, -- extra lead per (speed-16)/16 — sprint pushes it further
 }
 
 export type Pose = {
@@ -37,8 +38,15 @@ function BallCarry.steer(cfg: Tuning, p: Pose): Vector3
 	dir = (dir.Magnitude > 0.001) and dir.Unit or Vector3.new(0, 0, 1)
 
 	local carrierVel = Vector3.new(p.carrierVel.X, 0, p.carrierVel.Z)
-	local leadX = p.rootPos.X + dir.X * cfg.Offset
-	local leadZ = p.rootPos.Z + dir.Z * cfg.Offset
+	-- sprint knock-ons: the faster the run, the further the touch rolls out
+	-- ahead — quicker ground covered, but more ball for a defender to nick
+	local off = cfg.Offset
+	local knock = cfg.SprintKnockOn
+	if knock and knock > 0 then
+		off += math.max(0, (carrierVel.Magnitude - 16) / 16) * knock
+	end
+	local leadX = p.rootPos.X + dir.X * off
+	local leadZ = p.rootPos.Z + dir.Z * off
 	local toLead = Vector3.new(leadX - p.ballPos.X, 0, leadZ - p.ballPos.Z)
 	-- feed-forward the carrier's speed: a pure P-controller cruises at
 	-- v/Responsiveness BEHIND its target, so the faster the run the further

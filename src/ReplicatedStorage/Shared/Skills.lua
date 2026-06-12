@@ -47,6 +47,26 @@ local List: { Skill } = {
 		stamina = 10,
 		blurb = "Flick the ball over their heads and run onto it.",
 	},
+	{
+		id = "chop",
+		name = "Chop Cut",
+		unlockLevel = 14,
+		key = Enum.KeyCode.C,
+		pad = Enum.KeyCode.DPadDown,
+		cooldown = 5,
+		stamina = 8,
+		blurb = "Plant and cut the ball 90° — the lunge flies past you.",
+	},
+	{
+		id = "fakeshot",
+		name = "Fake Shot",
+		unlockLevel = 18,
+		key = Enum.KeyCode.V,
+		pad = Enum.KeyCode.ButtonR3,
+		cooldown = 6,
+		stamina = 8,
+		blurb = "Sell the strike — the nearest defender bites and freezes.",
+	},
 }
 Skills.List = List
 

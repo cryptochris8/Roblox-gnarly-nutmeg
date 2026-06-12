@@ -146,8 +146,9 @@ function InputController.start(hud)
 				{ "GN_Nutmeg", 0.30, 0.12, 56 },
 				{ "GN_Sprint", 0.62, 0.06, 56 },
 			}
+			local skillStep = 0.88 / math.max(#Skills.List, 1)
 			for i, s in ipairs(Skills.List) do
-				layout[#layout + 1] = { "GN_Skill_" .. s.id, 0.04 + (i - 1) * 0.24, -0.16, 44 }
+				layout[#layout + 1] = { "GN_Skill_" .. s.id, 0.02 + (i - 1) * skillStep, -0.16, 42 }
 			end
 			for _, it in ipairs(layout) do
 				local name = it[1] :: string

@@ -26,6 +26,7 @@ local TeamService = require(script.Parent.TeamService)
 local PlayerService = require(script.Parent.PlayerService)
 local AudioService = require(script.Parent.AudioService)
 local DifficultyService = require(script.Parent.DifficultyService)
+local BotAnimationService = require(script.Parent.BotAnimationService)
 
 local FIELD = GameConfig.Field
 local BALL = GameConfig.Ball
@@ -341,6 +342,7 @@ function BallService.passFrom(fromModel: Model, forcedReceiver: Model?): boolean
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	AudioService.kick(speed / KICK.PassSpeedMax * 0.7)
+	BotAnimationService.kick(fromModel)
 	return true
 end
 
@@ -367,6 +369,7 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	local goal = TeamService.targetGoalCenter(team)
 	local halfMouth = math.max(1, GOAL.Width / 2 - GOAL.PostThickness)
 	local aimX = goal.X
+	local strikeAcross = 0 -- how hard the shooter is cutting across the strike
 	if fromModel:GetAttribute("IsBot") == true then
 		-- bots run straight at goal, so facing can't place their shots — they
 		-- pick a corner instead, biased to the FAR post (away from where they
@@ -385,6 +388,14 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 		end
 		aimX = math.clamp(aimX, goal.X - halfMouth, goal.X + halfMouth)
 		aimX = aimX * 0.9 + goal.X * 0.1
+		-- STRIKE NUANCE: momentum shapes the strike — cutting across the ball
+		-- at contact drags the placement with the run and adds bend below
+		local hum = fromModel:FindFirstChildOfClass("Humanoid")
+		if hum then
+			local mv = hum.MoveDirection
+			strikeAcross = Vector3.new(mv.X, 0, mv.Z):Dot(Vector3.new(-facing.Z, 0, facing.X))
+			aimX = math.clamp(aimX + strikeAcross * KICK.StrikeShapePush, goal.X - halfMouth, goal.X + halfMouth)
+		end
 	end
 	local dir = Vector3.new(aimX - ball.Position.X, 0, goal.Z - ball.Position.Z)
 	dir = dir.Magnitude > 0.1 and dir.Unit or facing
@@ -438,7 +449,8 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 			s = (lateral.X * cornerOffset >= 0) and 1 or -1 -- outward = past the corner
 		end
 		local outward = lateral * s
-		local theta = math.rad(KICK.CurlDeg)
+		-- cutting across the ball whips MORE bend onto a finesse strike
+		local theta = math.rad(KICK.CurlDeg * (1 + math.min(math.abs(strikeAcross), 1) * 0.5))
 		dir = (dir * math.cos(theta) + outward * math.sin(theta)).Unit
 		-- lateral kinematics: a*t^2/2 cancels v*sin(theta)*t over the flight,
 		-- so the shot re-converges on the aim point right as it gets there
@@ -456,6 +468,7 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	ball.AssemblyLinearVelocity = v
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
 	AudioService.kick(charge)
+	BotAnimationService.kick(fromModel)
 	if fromModel:GetAttribute("IsBot") ~= true and charge >= 0.8 then
 		AudioService.commentary("bigShot") -- the call rides the flight of a thunderbolt
 	end
@@ -498,6 +511,7 @@ function BallService.nutmegFrom(fromModel: Model): boolean
 	lastKicker = fromModel
 	expectedReceiver = nil
 	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
+	BotAnimationService.kick(fromModel)
 	if victim then
 		local v = victim :: Footballer
 		local through = Vector3.new(v.root.Position.X - root.Position.X, 0, v.root.Position.Z - root.Position.Z)
@@ -547,6 +561,7 @@ function BallService.tackleAttempt(byModel: Model): boolean
 
 	local victim = carrier
 	setPossession(byModel) -- tackler wins the ball
+	BotAnimationService.slideTackle(byModel)
 	applyStun(victim, TACKLE.StunSeconds)
 	local knock = flat.Magnitude > 0.1 and flat.Unit or fwd
 	local vRoot = victim:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -867,6 +882,8 @@ local function tryPickup()
 		-- a keeper smothering a genuinely fast ball is a SAVE worth calling
 		if nearest.role == "goalkeeper" and ballSpeed > 45 then
 			AudioService.commentary("save")
+			local rel = bp - nearest.root.Position
+			BotAnimationService.keeperDive(nearest.model, rel:Dot(nearest.root.CFrame.RightVector))
 		end
 		setPossession(nearest.model)
 		if completedBy then
@@ -940,6 +957,67 @@ function BallService.skillRainbow(fromModel: Model): boolean
 	ball.AssemblyLinearVelocity = dir * 26 + Vector3.yAxis * 52
 	ignorePickupUntil = os.clock() + 0.45 -- can't instantly re-grab; chase it down
 	AudioService.kick(0.45)
+	return true
+end
+
+-- Chop Cut: plant and cut the ball 90° to your steering side — your momentum
+-- resets on the new line while the defender's lunge carries them past.
+function BallService.skillChop(fromModel: Model): boolean
+	if carrier ~= fromModel or not ball then
+		return false
+	end
+	local root = fromModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hum = fromModel:FindFirstChildOfClass("Humanoid")
+	if not root or not hum then
+		return false
+	end
+	local fwd = root.CFrame.LookVector
+	fwd = Vector3.new(fwd.X, 0, fwd.Z)
+	fwd = fwd.Magnitude > 0.1 and fwd.Unit or Vector3.new(0, 0, 1)
+	local lateral = Vector3.new(-fwd.Z, 0, fwd.X)
+	local mv = hum.MoveDirection
+	local side = (Vector3.new(mv.X, 0, mv.Z):Dot(lateral) < 0) and -1 or 1
+	local newDir = lateral * side
+	local pos = root.Position
+	root.CFrame = CFrame.lookAt(pos, pos + newDir) + newDir * 2.5 -- the cut
+	root.AssemblyLinearVelocity = newDir * 30
+	ball.AssemblyLinearVelocity = newDir * 26 -- the touch goes with you
+	fromModel:SetAttribute("SpinImmuneUntil", os.clock() + 0.4) -- the cut beats the lunge
+	fromModel:SetAttribute("SkillFlashUntil", os.clock() + 0.4)
+	AudioService.kick(0.25)
+	return true
+end
+
+-- Fake Shot: sell the full strike (real kick animation), the nearest defender
+-- ahead bites and freezes for a beat. Clean family jukes only.
+function BallService.skillFakeShot(fromModel: Model): boolean
+	if carrier ~= fromModel or not ball then
+		return false
+	end
+	local root = fromModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return false
+	end
+	BotAnimationService.kick(fromModel) -- the sell
+	local fwd = root.CFrame.LookVector
+	fwd = Vector3.new(fwd.X, 0, fwd.Z)
+	fwd = fwd.Magnitude > 0.1 and fwd.Unit or Vector3.new(0, 0, 1)
+	local team = (fromModel:GetAttribute("Team") :: string?) or ""
+	local bit: Footballer? = nil
+	local bd = math.huge
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team ~= team and f.model ~= fromModel then
+			local rel = Vector3.new(f.root.Position.X - root.Position.X, 0, f.root.Position.Z - root.Position.Z)
+			local d = rel.Magnitude
+			if d < 10 and d > 0.1 and fwd:Dot(rel.Unit) > 0.2 and d < bd then
+				bd = d
+				bit = f
+			end
+		end
+	end
+	if bit then
+		applyStun((bit :: Footballer).model, 0.55) -- bought the dummy
+	end
 	return true
 end
 

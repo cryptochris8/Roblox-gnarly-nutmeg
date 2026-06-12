@@ -575,6 +575,79 @@ local function buildDugouts(parent: Instance)
 	end)
 end
 
+-- ---- Meshy hero props ---------------------------------------------------------
+-- Generated stadium dressing (tools/mesh_pipeline; ids in props_uploaded.json).
+-- Loaded by id at boot, normalised to a target height, anchored, decorative
+-- only. id = 0 means not uploaded yet — silently skipped. Raw Meshy meshes
+-- face -Z, so aiming uses lookAt * 180° yaw (the facing contract from Squishy).
+local PROP_IDS = {
+	tvCamera = 0,
+	mascotStatue = 0,
+	entranceArch = 0,
+}
+
+local function loadProp(id: number, targetHeight: number): Model?
+	if id == 0 then
+		return nil
+	end
+	local model: Model? = nil
+	pcall(function()
+		local InsertService = game:GetService("InsertService")
+		local container = InsertService:LoadAsset(id)
+		local m = container:FindFirstChildOfClass("Model") or container
+		local first = m:FindFirstChildWhichIsA("BasePart", true)
+		if not first then
+			return
+		end
+		if not m.PrimaryPart then
+			(m :: Model).PrimaryPart = first
+		end
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CastShadow = false
+			end
+		end
+		local extents = (m :: Model):GetExtentsSize()
+		if extents.Y > 0.01 then
+			(m :: Model):ScaleTo(targetHeight / extents.Y)
+		end
+		m.Parent = nil
+		model = m :: Model
+	end)
+	return model
+end
+
+local function placeProp(id: number, targetHeight: number, cf: CFrame, parent: Instance)
+	pcall(function()
+		local m = loadProp(id, targetHeight)
+		if m then
+			-- Meshy meshes face -Z: flip so the prop's face follows the lookAt
+			m:PivotTo(cf * CFrame.Angles(0, math.rad(180), 0))
+			m.Parent = parent
+		end
+	end)
+end
+
+local function buildHeroProps(parent: Instance)
+	pcall(function()
+		local standBase = RUNOFF + WALL_T
+		-- broadcast cameras atop the two side stands, trained on the centre spot
+		local camY = FIELD.GroundY + 24
+		for _, sx in ipairs({ -1, 1 }) do
+			local x = (sx > 0 and FIELD.MaxX or FIELD.MinX) + sx * (standBase + 18)
+			local pos = Vector3.new(x, camY, CZ)
+			placeProp(PROP_IDS.tvCamera, 6, CFrame.lookAt(pos, Vector3.new(0, FIELD.GroundY + 2, 0)), parent)
+		end
+		-- the stadium plaza beyond the -Z end: mascot statue + entrance arch
+		local plazaZ = FIELD.MinZ - (standBase + 50)
+		placeProp(PROP_IDS.mascotStatue, 16, CFrame.lookAt(Vector3.new(CX - 26, FIELD.GroundY + 8, plazaZ), Vector3.new(CX - 26, FIELD.GroundY + 8, plazaZ + 10)), parent)
+		placeProp(PROP_IDS.entranceArch, 26, CFrame.lookAt(Vector3.new(CX, FIELD.GroundY + 13, plazaZ - 8), Vector3.new(CX, FIELD.GroundY + 13, plazaZ + 10)), parent)
+	end)
+end
+
 local function tuneLighting()
 	pcall(function()
 		-- The template ships a broken/black skybox: with environment lighting on,
@@ -674,6 +747,7 @@ function WorldService.build(): World
 	buildHoardings(pitch)
 	buildJumbotrons(pitch)
 	buildDugouts(pitch)
+	buildHeroProps(pitch)
 	tuneLighting()
 
 	local spawnPad = Instance.new("SpawnLocation")

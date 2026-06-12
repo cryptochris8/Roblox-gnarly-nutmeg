@@ -160,6 +160,14 @@ Remotes.get(Remotes.RequestSkill).OnServerEvent:Connect(function(player, skillId
 		if BallService.skillRainbow(char) then
 			AudioService.ooh()
 		end
+	elseif skillId == "chop" then
+		if BallService.skillChop(char) then
+			PlayerService.burst(player, 1.3, 0.4)
+		end
+	elseif skillId == "fakeshot" then
+		if BallService.skillFakeShot(char) then
+			PlayerService.burst(player, 1.25, 0.45)
+		end
 	end
 end)
 

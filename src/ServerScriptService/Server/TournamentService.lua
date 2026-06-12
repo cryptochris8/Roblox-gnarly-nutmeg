@@ -102,7 +102,11 @@ local function shuffle<T>(t: { T })
 	end
 end
 
--- The golden cup on a podium at the centre spot.
+-- The generated golden cup (tools/mesh_pipeline). 0 = use the parts fallback.
+local TROPHY_MESH_ID = 0
+
+-- The golden cup on a podium at the centre spot. Uses the Meshy hero cup when
+-- its asset id is baked in; otherwise the original parts build stands in.
 local function buildTrophy(): Instance?
 	local model = Instance.new("Model")
 	model.Name = "NutmegTrophy"
@@ -120,20 +124,54 @@ local function buildTrophy(): Instance?
 		return p
 	end
 	local y = GameConfig.Field.GroundY
+	-- the podium is always parts (it reads great and grounds the cup)
 	part(Vector3.new(8, 2, 8), CFrame.new(0, y + 1, 0), Color3.fromRGB(40, 44, 60), Enum.Material.SmoothPlastic)
 	part(Vector3.new(6, 1.2, 6), CFrame.new(0, y + 2.6, 0), gold, Enum.Material.Metal)
-	part(Vector3.new(1, 2.4, 1), CFrame.new(0, y + 4.4, 0), gold, Enum.Material.Metal)
-	local bowl = part(Vector3.new(3, 2.6, 3), CFrame.new(0, y + 6.6, 0), gold, Enum.Material.Metal)
-	bowl.Shape = Enum.PartType.Ball
-	part(Vector3.new(0.9, 0.9, 0.9), CFrame.new(0, y + 8.2, 0), gold, Enum.Material.Neon)
-	for _, sx in ipairs({ -1, 1 }) do
-		part(Vector3.new(0.5, 2, 0.5), CFrame.new(sx * 1.9, y + 6.8, 0) * CFrame.Angles(0, 0, sx * 0.5), gold, Enum.Material.Metal)
+
+	local glowParent: BasePart? = nil
+	if TROPHY_MESH_ID ~= 0 then
+		pcall(function()
+			local container = game:GetService("InsertService"):LoadAsset(TROPHY_MESH_ID)
+			local m = container:FindFirstChildOfClass("Model") or container
+			local first = m:FindFirstChildWhichIsA("BasePart", true)
+			if not first then
+				return
+			end
+			if not m.PrimaryPart then
+				(m :: Model).PrimaryPart = first
+			end
+			for _, d in ipairs(m:GetDescendants()) do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+					d.CanCollide = false
+					d.CanQuery = false
+				end
+			end
+			local extents = (m :: Model):GetExtentsSize()
+			if extents.Y > 0.01 then
+				(m :: Model):ScaleTo(6.5 / extents.Y)
+			end
+			(m :: Model):PivotTo(CFrame.new(0, y + 3.2 + 6.5 / 2, 0))
+			m.Parent = model
+			glowParent = (m :: Model).PrimaryPart
+		end)
+	end
+	if not glowParent then
+		-- parts cup fallback: stem, bowl, lid ball + handles
+		part(Vector3.new(1, 2.4, 1), CFrame.new(0, y + 4.4, 0), gold, Enum.Material.Metal)
+		local bowl = part(Vector3.new(3, 2.6, 3), CFrame.new(0, y + 6.6, 0), gold, Enum.Material.Metal)
+		bowl.Shape = Enum.PartType.Ball
+		part(Vector3.new(0.9, 0.9, 0.9), CFrame.new(0, y + 8.2, 0), gold, Enum.Material.Neon)
+		for _, sx in ipairs({ -1, 1 }) do
+			part(Vector3.new(0.5, 2, 0.5), CFrame.new(sx * 1.9, y + 6.8, 0) * CFrame.Angles(0, 0, sx * 0.5), gold, Enum.Material.Metal)
+		end
+		glowParent = bowl
 	end
 	local light = Instance.new("PointLight")
 	light.Color = gold
 	light.Range = 24
 	light.Brightness = 2
-	light.Parent = bowl
+	light.Parent = glowParent
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Color = ColorSequence.new(gold, Color3.fromRGB(255, 255, 255))
 	emitter.LightEmission = 0.8
@@ -141,7 +179,7 @@ local function buildTrophy(): Instance?
 	emitter.Speed = NumberRange.new(12, 24)
 	emitter.SpreadAngle = Vector2.new(60, 60)
 	emitter.Rate = 40
-	emitter.Parent = bowl
+	emitter.Parent = glowParent
 	model.Parent = Workspace
 	return model
 end

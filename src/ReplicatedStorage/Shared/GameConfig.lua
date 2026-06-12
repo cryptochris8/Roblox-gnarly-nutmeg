@@ -75,6 +75,7 @@ GameConfig.Dribble = {
 	Responsiveness = 12,     -- P-gain steering the ball toward the lead point
 	MaxSpeed = 50,           -- cap on dribble steering speed (keeps pace with a sprint)
 	LeashRadius = 14,        -- server force-looses a human-steered ball that strays this far
+	SprintKnockOn = 2.5,     -- extra lead at full sprint: faster carry, easier to nick
 }
 
 -- ---- Kicking (scaled for the larger pitch; TUNE in playtest) ---------------
@@ -99,6 +100,7 @@ GameConfig.Kick = {
 	CurlMaxCharge = 0.7,     -- above this it's driven - straight
 	CurlMinDist = 14,        -- inside this there's no room to bend one
 	CurlBotTier = 4,         -- bot leagues from this tier curl their corner picks
+	StrikeShapePush = 7,     -- studs of placement drag from cutting across the ball
 }
 
 -- ---- Dead-ball restarts (throw-ins / corners / goal kicks) ------------------

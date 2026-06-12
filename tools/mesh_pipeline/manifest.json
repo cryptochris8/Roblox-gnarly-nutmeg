@@ -1,0 +1,30 @@
+﻿{
+    "entrance_arch":  {
+                          "previewId":  "019eba76-fc08-73e4-8d42-d0d7b2d17c5e",
+                          "refineId":  null,
+                          "status":  "preview",
+                          "fbx":  null,
+                          "thumb":  null
+                      },
+    "mascot_statue":  {
+                          "previewId":  "019eba74-23e5-7170-8004-773a4d5af82d",
+                          "refineId":  "019eba75-65e0-7b4a-8585-419adfb0196d",
+                          "status":  "done",
+                          "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\mascot_statue.fbx",
+                          "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\mascot_statue_thumb.png"
+                      },
+    "trophy":  {
+                   "previewId":  "019eba6f-3676-726d-9d6e-aa2788f213bb",
+                   "refineId":  "019eba70-7975-70bf-b006-d9385e646645",
+                   "status":  "done",
+                   "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\trophy.fbx",
+                   "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\trophy_thumb.png"
+               },
+    "tv_camera":  {
+                      "previewId":  "019eba71-d66b-72c6-97c9-376bb934a41b",
+                      "refineId":  "019eba73-18d3-7128-9d99-e2f689b53436",
+                      "status":  "done",
+                      "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\tv_camera.fbx",
+                      "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\tv_camera_thumb.png"
+                  }
+}

@@ -47,8 +47,8 @@ function QuestUI.mount(playerGui)
 	panel = UiTheme.make("Frame", {
 		Name = "QuestPanel",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 18, 0.55, 0),
-		Size = UDim2.fromOffset(320, 404),
+		Position = UDim2.new(0, 18, 0.52, 0),
+		Size = UDim2.fromOffset(320, 446),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.06,
 		Visible = false,
@@ -160,13 +160,14 @@ function QuestUI.mount(playerGui)
 	end
 
 	-- career cabinet: lifetime numbers from the persisted profile
+	-- (sits below the skill list, which is 5 rows tall now)
 	UiTheme.make("TextLabel", {
 		BackgroundTransparency = 1,
 		Font = UiTheme.Header,
 		TextSize = 14,
 		TextColor3 = C.Sub,
 		Text = "CAREER",
-		Position = UDim2.fromOffset(16, 344),
+		Position = UDim2.fromOffset(16, 388),
 		Size = UDim2.new(1, -32, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
@@ -177,7 +178,7 @@ function QuestUI.mount(playerGui)
 		TextSize = 14,
 		TextColor3 = C.Panel,
 		Text = "",
-		Position = UDim2.fromOffset(16, 362),
+		Position = UDim2.fromOffset(16, 406),
 		Size = UDim2.new(1, -32, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
@@ -188,7 +189,7 @@ function QuestUI.mount(playerGui)
 		TextSize = 14,
 		TextColor3 = C.Panel,
 		Text = "",
-		Position = UDim2.fromOffset(16, 380),
+		Position = UDim2.fromOffset(16, 424),
 		Size = UDim2.new(1, -32, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,

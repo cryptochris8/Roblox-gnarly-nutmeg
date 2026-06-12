@@ -8,6 +8,7 @@
 -- (e.g. the peg fallback rig, which has no limbs to animate).
 
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local BotAnimationService = {}
 
@@ -98,6 +99,119 @@ function BotAnimationService.celebrate(model: Model, kind: string)
 		task.delay(2.6, function()
 			track:Stop(0.3)
 			track:Destroy()
+		end)
+	end)
+end
+
+-- ---- procedural action overlays ---------------------------------------------
+-- Kicks, slide tackles and keeper dives are SERVER-TWEENED Motor6D.C0 offsets.
+-- C0 is a replicated property (unlike .Transform, which every client's own
+-- Animator overwrites locally), and the animator's pose COMPOSES with it — so
+-- one tween here reads correctly on every client, over any running animation,
+-- for bots AND humans, with zero uploaded animation assets. Each action
+-- captures the joint's rest C0 and restores it; "AnimActionUntil" stops
+-- overlapping actions from fighting on the same rig.
+
+local function motorOf(model: Model, partName: string, motorName: string): Motor6D?
+	local part = model:FindFirstChild(partName)
+	local motor = part and part:FindFirstChild(motorName)
+	if motor and motor:IsA("Motor6D") then
+		return motor
+	end
+	return nil
+end
+
+local function actionBusy(model: Model, seconds: number): boolean
+	if ((model:GetAttribute("AnimActionUntil") :: number?) or 0) > os.clock() then
+		return true
+	end
+	model:SetAttribute("AnimActionUntil", os.clock() + seconds)
+	return false
+end
+
+local function tweenC0(motor: Motor6D, c0: CFrame, t: number, style: Enum.EasingStyle?, dir: Enum.EasingDirection?)
+	TweenService:Create(
+		motor,
+		TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out),
+		{ C0 = c0 }
+	):Play()
+end
+
+-- A proper leg swing: wind the right thigh back, lash it through, recover.
+function BotAnimationService.kick(model: Model)
+	pcall(function()
+		if actionBusy(model, 0.55) then
+			return
+		end
+		local hip = motorOf(model, "RightUpperLeg", "RightHip")
+		local knee = motorOf(model, "RightLowerLeg", "RightKnee")
+		if not hip then
+			return
+		end
+		local hipRest = hip.C0
+		local kneeRest = knee and knee.C0
+		tweenC0(hip, hipRest * CFrame.Angles(math.rad(38), 0, 0), 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		if knee and kneeRest then
+			tweenC0(knee, kneeRest * CFrame.Angles(math.rad(-55), 0, 0), 0.1)
+		end
+		task.delay(0.11, function()
+			tweenC0(hip, hipRest * CFrame.Angles(math.rad(-78), 0, 0), 0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			if knee and kneeRest then
+				tweenC0(knee, kneeRest * CFrame.Angles(math.rad(15), 0, 0), 0.14)
+			end
+		end)
+		task.delay(0.3, function()
+			tweenC0(hip, hipRest, 0.24, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			if knee and kneeRest then
+				tweenC0(knee, kneeRest, 0.24, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			end
+		end)
+	end)
+end
+
+-- The clean slide: lean way back and sink while momentum carries them through.
+function BotAnimationService.slideTackle(model: Model)
+	pcall(function()
+		if actionBusy(model, 0.8) then
+			return
+		end
+		local rootM = motorOf(model, "LowerTorso", "Root")
+		if not rootM then
+			return
+		end
+		local rest = rootM.C0
+		local slid = rest * CFrame.new(0, -0.85, 0) * CFrame.Angles(math.rad(-48), 0, 0)
+		tweenC0(rootM, slid, 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		task.delay(0.45, function()
+			tweenC0(rootM, rest, 0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+		end)
+	end)
+end
+
+-- Keeper dive: roll the torso toward the ball side and throw the arms up.
+function BotAnimationService.keeperDive(model: Model, side: number)
+	pcall(function()
+		if actionBusy(model, 0.85) then
+			return
+		end
+		local rootM = motorOf(model, "LowerTorso", "Root")
+		if not rootM then
+			return
+		end
+		local s = (side >= 0) and 1 or -1
+		local rest = rootM.C0
+		local dove = rest * CFrame.new(s * 0.6, -0.6, 0) * CFrame.Angles(0, 0, math.rad(-s * 62))
+		tweenC0(rootM, dove, 0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local shoulder = motorOf(model, s > 0 and "RightUpperArm" or "LeftUpperArm", s > 0 and "RightShoulder" or "LeftShoulder")
+		local shoulderRest = shoulder and shoulder.C0
+		if shoulder and shoulderRest then
+			tweenC0(shoulder, shoulderRest * CFrame.Angles(0, 0, math.rad(s * 150)), 0.16)
+		end
+		task.delay(0.5, function()
+			tweenC0(rootM, rest, 0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			if shoulder and shoulderRest then
+				tweenC0(shoulder, shoulderRest, 0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			end
 		end)
 	end)
 end
