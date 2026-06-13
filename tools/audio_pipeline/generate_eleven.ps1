@@ -1,12 +1,12 @@
 # Generates the big-moments announcer pack via ElevenLabs TTS.
-# Voice: Charlie (premade, hyped) IKne3meq5aSn9XLyUdCD. Key read at call time
-# from C:\Users\chris\elevenlabs.txt - NEVER hardcoded or committed.
+# Voice: "Sports Guy - Excited and fast, play by play" (Chris's library pick).
+# Key read at call time from C:\Users\chris\elevenlabs.txt - NEVER committed.
 # Output: eleven\<id>.mp3 (44.1kHz 128k), ready for the trickle uploader.
 
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $key = (Get-Content 'C:\Users\chris\elevenlabs.txt' -Raw).Trim()
-$voice = 'IKne3meq5aSn9XLyUdCD'
+$voice = 'gnPxliFHTp6OK6tcoA6i'
 $outDir = Join-Path $PSScriptRoot 'eleven'
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
