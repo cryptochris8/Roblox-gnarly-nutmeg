@@ -64,5 +64,11 @@
         "file":  "shootout_score",
         "assetId":  "138840028014150",
         "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - underway",
+        "file":  "underway",
+        "assetId":  "79481373362690",
+        "state":  "Approved"
     }
 ]

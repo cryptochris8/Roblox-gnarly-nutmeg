@@ -29,8 +29,8 @@ local IDS = {
 -- uploaded.json). One voice, broadcast-style: never talks over itself, and
 -- priority lines (goals, full time) cut whatever else was being said.
 local COMMENTARY_IDS: { [string]: { number } } = {
-	-- "Game Start" + the Sports Guy "we're underway" (id baked when it clears)
-	kickoff = { 120845229617056 },
+	-- "Game Start" + the Sports Guy "we're underway at the Nutmeg Arena"
+	kickoff = { 120845229617056, 79481373362690 },
 	-- licensed What A Goal/Beauty/Crowd + Sports Guy top-corner / no-chance
 	goal = { 104462952127702, 79267049967666, 91931519210036, 137476438836751, 118480344324006 },
 	save = { 136618842417043, 86354432570322 }, -- Beautiful Save + Sports Guy fingertips
