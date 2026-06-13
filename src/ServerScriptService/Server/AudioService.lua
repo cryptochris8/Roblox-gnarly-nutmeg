@@ -48,6 +48,17 @@ local COMMENTARY_IDS: { [string]: { number } } = {
 	nutmegCall = {},
 }
 
+-- the two-man booth riffs during quiet stretches: Sports Guy sets it up,
+-- the colour man lands the punchline. Pairs no-op until ids are baked.
+local BANTER_IDS: { { a: number, b: number } } = {
+	{ a = 0, b = 0 },
+	{ a = 0, b = 0 },
+	{ a = 0, b = 0 },
+	{ a = 0, b = 0 },
+	{ a = 0, b = 0 },
+	{ a = 0, b = 0 },
+}
+
 -- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);
 -- 0 = not uploaded yet, silently skipped
 local CHANT_IDS = {
@@ -66,6 +77,8 @@ local kickVariants: { Sound } = {}
 local commentaryPools: { [string]: { Sound } } = {}
 local commentaryGapUntil = 0
 local commentarySpeaking: Sound? = nil
+local banterPairs: { { a: Sound, b: Sound } } = {}
+local nextBanterAt = 0
 
 local function makeSound(name: string, id: number, volume: number, looped: boolean): Sound
 	local s = Instance.new("Sound")
@@ -137,6 +150,40 @@ function AudioService.ooh()
 	playOneShot("CrowdOoh")
 end
 
+-- Quiet-stretch booth banter: called every beat of open play; throttled,
+-- diced, and always yields to a real call (priority lines cut anything).
+function AudioService.maybeBanter()
+	pcall(function()
+		if #banterPairs == 0 or os.clock() < nextBanterAt then
+			return
+		end
+		if os.clock() < commentaryGapUntil + 6 then
+			return -- a real call just happened; let the match breathe
+		end
+		local speaking = commentarySpeaking
+		if speaking and speaking.IsPlaying then
+			return
+		end
+		nextBanterAt = os.clock() + 35 + math.random() * 40
+		if math.random() > 0.45 then
+			return -- more often than not, the booth just watches
+		end
+		local pair = banterPairs[math.random(1, #banterPairs)]
+		commentaryGapUntil = os.clock() + 10
+		commentarySpeaking = pair.a
+		pair.a.TimePosition = 0
+		pair.a:Play()
+		task.delay(math.max(pair.a.TimeLength, 1.3) + 0.35, function()
+			-- the punchline only lands if nothing serious cut in
+			if commentarySpeaking == pair.a then
+				commentarySpeaking = pair.b
+				pair.b.TimePosition = 0
+				pair.b:Play()
+			end
+		end)
+	end)
+end
+
 -- Crowd tension: the ambient loop leans in as the clock runs down
 -- (0 = normal murmur, 1 = full final-minute buzz), and the melodic
 -- chant bed rises with it.
@@ -202,6 +249,14 @@ function AudioService.init()
 				pool[i] = makeSound("Commentary_" .. kind .. i, id, 0.9, false)
 			end
 			commentaryPools[kind] = pool
+		end
+		for i, pair in ipairs(BANTER_IDS) do
+			if pair.a ~= 0 and pair.b ~= 0 then
+				banterPairs[#banterPairs + 1] = {
+					a = makeSound("Banter" .. i .. "A", pair.a, 0.85, false),
+					b = makeSound("Banter" .. i .. "B", pair.b, 0.85, false),
+				}
+			end
 		end
 		-- chant beds idle at zero volume until tension/goals raise them
 		if CHANT_IDS.melodic ~= 0 then

@@ -533,6 +533,7 @@ local function playHalf(h: number)
 			task.wait(0.2)
 			-- the crowd leans in over the last 30 seconds of a half
 			AudioService.tension(timeRemaining < 30 and (1 - timeRemaining / 30) or 0)
+			AudioService.maybeBanter() -- the booth riffs through quiet spells
 		end
 		if stoppageAdded or abortRequested then
 			break
