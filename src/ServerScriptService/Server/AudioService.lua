@@ -29,23 +29,25 @@ local IDS = {
 -- uploaded.json). One voice, broadcast-style: never talks over itself, and
 -- priority lines (goals, full time) cut whatever else was being said.
 local COMMENTARY_IDS: { [string]: { number } } = {
-	kickoff = { 120845229617056 },  -- "Game Start"
-	goal = { 104462952127702, 79267049967666, 91931519210036 }, -- What A Goal / What A Beauty / Crowd Goes Wild
-	save = { 136618842417043 },     -- "Beautiful Save"
+	-- "Game Start" + the Sports Guy "we're underway" (id baked when it clears)
+	kickoff = { 120845229617056 },
+	-- licensed What A Goal/Beauty/Crowd + Sports Guy top-corner / no-chance
+	goal = { 104462952127702, 79267049967666, 91931519210036, 137476438836751, 118480344324006 },
+	save = { 136618842417043, 86354432570322 }, -- Beautiful Save + Sports Guy fingertips
 	nearMiss = { 98312663627363, 95682027071520 }, -- "Near Miss" / "So Close"
 	bigShot = { 91152581781107 },   -- "What A Shot" (was still in review 2026-06-12; plays once approved)
 	onFire = { 132313435848225 },   -- "He's On Fire Now"
 	fullTime = { 136770975225532 }, -- "It's All Over"
-	-- the generated big-moments pack (tools/audio_pipeline/eleven_uploaded.json);
-	-- empty pools no-op until the ids land
-	shootoutIntro = {},
-	shootoutSave = {},
-	shootoutScore = {},
-	goldenGoal = {},
-	halftime = {},
-	finalIntro = {},
-	champions = {},
-	nutmegCall = {},
+	-- the generated Sports Guy big-moments pack (tools/audio_pipeline/
+	-- eleven_uploaded.json); all Approved
+	shootoutIntro = { 83377084959233 },
+	shootoutSave = { 134354105537378 },
+	shootoutScore = { 138840028014150 },
+	goldenGoal = { 86804777946105 },
+	halftime = { 108498126289511 },
+	finalIntro = { 139145841562240 },
+	champions = { 114275922604159 },
+	nutmegCall = { 125701783571611 },
 }
 
 -- the two-man booth riffs during quiet stretches: Sports Guy sets it up,

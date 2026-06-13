@@ -16,6 +16,10 @@ sourcemap.json
 /DevPackages/
 wally.lock
 
+# Screen recordings (keep large video out of the repo)
+*.mp4
+*.mov
+
 # Editor / OS noise
 .DS_Store
 Thumbs.db
