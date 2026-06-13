@@ -189,6 +189,7 @@ end
 local function ceremony(champion: Nations.Nation, winnerTeam: string?)
 	pcall(function()
 		AudioService.goal()
+		AudioService.commentary("champions", true)
 		toast(("🏆 %s%s WIN THE NUTMEG TROPHY!"):format(champion.name, ownerTag(champion)))
 		local trophy = buildTrophy()
 		if winnerTeam then
@@ -420,6 +421,9 @@ function TournamentService.beforeMatch()
 	TeamService.setIdentity("Red", cur.a.name, cur.a.color)
 	TeamService.setIdentity("Blue", cur.b.name, cur.b.color)
 	MatchService.roundLabel = ROUND_NAMES[round]
+	if ROUND_NAMES[round] == "FINAL" then
+		AudioService.commentary("finalIntro", true)
+	end
 	MatchService.board = board
 	toast(("%s: %s%s vs %s%s"):format(
 		ROUND_NAMES[round] or "FIXTURE", cur.a.name, ownerTag(cur.a), cur.b.name, ownerTag(cur.b)))

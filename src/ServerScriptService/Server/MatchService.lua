@@ -394,9 +394,11 @@ local function takePenalty(shootTeam: string): boolean
 		end
 		if shootoutGoalTeam == shootTeam then
 			scored = true
+			AudioService.commentary("shootoutScore", true)
 			break
 		end
 		if keeper and BallService.getCarrier() == keeper then
+			AudioService.commentary("shootoutSave", true)
 			break -- SAVED
 		end
 		local bp = BallService.getBallPosition()
@@ -421,6 +423,7 @@ local function runShootout(): string
 	shootoutActive = true
 	shootoutTally = { Red = 0, Blue = 0 }
 	state = "Shootout"
+	AudioService.commentary("shootoutIntro", true)
 	AIService.setActive(false)
 	PlayerService.freezeAll(true)
 	BallService.stop()
@@ -508,7 +511,9 @@ local function playHalf(h: number)
 		countdownEvent:FireAllClients(0) -- GO!
 	end
 	AudioService.whistle("short")
-	if h == 1 then
+	if goldenGoal then
+		AudioService.commentary("goldenGoal", true)
+	elseif h == 1 then
 		AudioService.commentary("kickoff")
 	end
 
@@ -604,6 +609,7 @@ local function runMatchLoop()
 			end
 			if h < GameConfig.Halves then
 				state = "HalfTime"
+				AudioService.commentary("halftime", true)
 				broadcastNow()
 				if toastEvent then
 					toastEvent:FireAllClients("Half time")

@@ -36,6 +36,16 @@ local COMMENTARY_IDS: { [string]: { number } } = {
 	bigShot = { 91152581781107 },   -- "What A Shot" (was still in review 2026-06-12; plays once approved)
 	onFire = { 132313435848225 },   -- "He's On Fire Now"
 	fullTime = { 136770975225532 }, -- "It's All Over"
+	-- the generated big-moments pack (tools/audio_pipeline/eleven_uploaded.json);
+	-- empty pools no-op until the ids land
+	shootoutIntro = {},
+	shootoutSave = {},
+	shootoutScore = {},
+	goldenGoal = {},
+	halftime = {},
+	finalIntro = {},
+	champions = {},
+	nutmegCall = {},
 }
 
 -- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);

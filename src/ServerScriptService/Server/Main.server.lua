@@ -79,6 +79,7 @@ BallService.onNutmeg = function(byModel, _victimModel)
 			PlayerService.burst(plr, NUTMEG.BurstMultiplier, NUTMEG.BurstSeconds)
 			PlayerDataService.addNutmeg(plr)
 			BadgeService.nutmeg(plr)
+			AudioService.commentary("nutmegCall")
 		end
 		name = plr and plr.DisplayName or "Someone"
 	else
