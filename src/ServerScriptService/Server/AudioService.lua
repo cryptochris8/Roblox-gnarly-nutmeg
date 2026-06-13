@@ -50,15 +50,15 @@ local COMMENTARY_IDS: { [string]: { number } } = {
 	nutmegCall = { 125701783571611 },
 }
 
--- the two-man booth riffs during quiet stretches: Sports Guy sets it up,
--- the colour man lands the punchline. Pairs no-op until ids are baked.
+-- the two-man booth riffs during quiet stretches: Sports Guy (a) sets it up,
+-- Austin Knox (b) lands the punchline. All Approved & load-verified.
 local BANTER_IDS: { { a: number, b: number } } = {
-	{ a = 0, b = 0 },
-	{ a = 0, b = 0 },
-	{ a = 0, b = 0 },
-	{ a = 0, b = 0 },
-	{ a = 0, b = 0 },
-	{ a = 0, b = 0 },
+	{ a = 94750409325683, b = 130948099061065 },  -- cannon foot / garage
+	{ a = 114120548544185, b = 74493955813883 },  -- keeper organizing / car keys
+	{ a = 81866957512909, b = 73736402621077 },   -- one-two / both to the other team
+	{ a = 92792415143724, b = 107989056326463 },  -- possession / grandma & the remote
+	{ a = 102837625820968, b = 73706574682729 },  -- clever runs / snack table
+	{ a = 113226800503037, b = 102334559235884 }, -- great shape / round is a shape
 }
 
 -- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);

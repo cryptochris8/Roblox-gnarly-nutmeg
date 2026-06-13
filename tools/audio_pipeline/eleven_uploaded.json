@@ -70,5 +70,77 @@
         "file":  "underway",
         "assetId":  "79481373362690",
         "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter1_a",
+        "file":  "banter1_a",
+        "assetId":  "94750409325683",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter1_b",
+        "file":  "banter1_b",
+        "assetId":  "130948099061065",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter2_a",
+        "file":  "banter2_a",
+        "assetId":  "114120548544185",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter2_b",
+        "file":  "banter2_b",
+        "assetId":  "74493955813883",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter3_a",
+        "file":  "banter3_a",
+        "assetId":  "81866957512909",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter3_b",
+        "file":  "banter3_b",
+        "assetId":  "73736402621077",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter4_a",
+        "file":  "banter4_a",
+        "assetId":  "92792415143724",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter4_b",
+        "file":  "banter4_b",
+        "assetId":  "107989056326463",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter5_a",
+        "file":  "banter5_a",
+        "assetId":  "102837625820968",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter5_b",
+        "file":  "banter5_b",
+        "assetId":  "73706574682729",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter6_a",
+        "file":  "banter6_a",
+        "assetId":  "113226800503037",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - banter6_b",
+        "file":  "banter6_b",
+        "assetId":  "102334559235884",
+        "state":  "Approved"
     }
 ]
