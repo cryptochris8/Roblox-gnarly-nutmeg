@@ -12,8 +12,8 @@ or club marks. Publishing and visibility settings remain Chris-only actions.
 ## Description (paste-ready)
 
 > ⚽ **GNARLY NUTMEG** — fast 6v6 arcade futbol with bots that actually play
-> soccer, a real match announcer, and a World-Cup-style trophy run you can
-> host with your friends.
+> soccer, a real match announcer, and a knockout nation cup you can host
+> with your friends.
 >
 > 🎙️ Real commentary — goals, saves, and full-time, called like a broadcast
 > 🏆 HOST A CUP — friends claim nations, the bracket plays out for real
