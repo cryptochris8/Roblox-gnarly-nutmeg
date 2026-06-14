@@ -569,4 +569,45 @@ function HudUI.toast(text)
 	end
 end
 
+-- A transient "+N REASON" reward chip that rises from just above the XP bar and
+-- fades out — it celebrates the big moments (goals, wins, nutmegs, promotions,
+-- streaks) and then leaves NOTHING on screen, so the pitch stays clear. Quick
+-- back-to-back rewards stagger upward so they never overlap.
+local xpChipStack = 0
+function HudUI.xpGain(amount, reason)
+	if not gui or type(amount) ~= "number" or amount <= 0 then
+		return
+	end
+	local slot = xpChipStack
+	xpChipStack += 1
+	task.delay(0.85, function()
+		xpChipStack = math.max(0, xpChipStack - 1)
+	end)
+	-- start just above the XP bar (which sits at bottom-right, -18 inset, 20 tall)
+	local startY = -44 - slot * 28
+	local chip = UiTheme.make("TextLabel", {
+		Name = "XpChip",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -18, 1, startY),
+		Size = UDim2.fromOffset(240, 28),
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = Color3.fromRGB(245, 196, 60),
+		Text = ("+%d  %s"):format(amount, tostring(reason or "XP")),
+		Parent = gui,
+	})
+	local s = UiTheme.stroke(C.Ink, 2.5, chip)
+	local info = TweenInfo.new(1.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(chip, info, {
+		Position = UDim2.new(1, -18, 1, startY - 52),
+		TextTransparency = 1,
+	}):Play()
+	TweenService:Create(s, info, { Transparency = 1 }):Play()
+	task.delay(1.4, function()
+		chip:Destroy()
+	end)
+end
+
 return HudUI

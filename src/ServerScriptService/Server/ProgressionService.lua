@@ -45,6 +45,7 @@ local LEVEL_CAP = 50
 
 local syncEvent: RemoteEvent? = nil
 local toastEvent: RemoteEvent? = nil
+local xpGainEvent: RemoteEvent? = nil
 local syncQueued: { [Player]: boolean } = {}
 
 local function utcDay(): number
@@ -241,6 +242,18 @@ function ProgressionService.sync(player: Player)
 	end)
 end
 
+-- A floating "+N REASON" reward chip fires only for the BIG moments. The frequent
+-- pass/shot/tackle/match XP is deliberately absent: chipping every touch would
+-- clutter the play screen — worst of all on mobile, where the brief is to keep it
+-- clear for the game. Those still grant XP; they just don't pop a chip.
+local CHIP_REASON: { [string]: string } = {
+	goals = "GOAL!",
+	wins = "WIN!",
+	nutmegs = "NUTMEG!",
+	promotion = "PROMOTED!",
+	streak = "DAILY STREAK!",
+}
+
 -- Grant XP (level-ups + unlock announcements ride the sync/toasts).
 function ProgressionService.addXP(player: Player, amount: number, reason: string?)
 	local prog = progression(player)
@@ -257,6 +270,10 @@ function ProgressionService.addXP(player: Player, amount: number, reason: string
 				toastTo(player, ("🔓 %s unlocked — press %s!"):format(s.name, s.key.Name))
 			end
 		end
+	end
+	local label = reason and CHIP_REASON[reason]
+	if label and xpGainEvent then
+		(xpGainEvent :: RemoteEvent):FireClient(player, amount, label)
 	end
 	ProgressionService.sync(player)
 end
@@ -322,6 +339,7 @@ end
 function ProgressionService.init()
 	syncEvent = Remotes.get(Remotes.ProgressionSync)
 	toastEvent = Remotes.get(Remotes.Toast)
+	xpGainEvent = Remotes.get(Remotes.XpGain)
 
 	local function onJoin(player: Player)
 		task.spawn(function()

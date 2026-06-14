@@ -32,6 +32,7 @@ Remotes.Nutmeg = "Nutmeg"                       -- { name = string, byUserId = n
 Remotes.ProgressionSync = "ProgressionSync"     -- { xp, level, xpInto, xpNeed, quests, streak }
 Remotes.Toast = "Toast"                         -- text: string (small friendly message)
 Remotes.TournamentLobby = "TournamentLobby"     -- { open: boolean, seconds: number?, host: string? }
+Remotes.XpGain = "XpGain"                        -- amount: number, label: string (transient reward chip)
 
 local ALL_EVENTS = {
 	Remotes.RequestInitialState,
@@ -53,6 +54,7 @@ local ALL_EVENTS = {
 	Remotes.TournamentLobby,
 	Remotes.Nutmeg,
 	Remotes.Toast,
+	Remotes.XpGain,
 }
 
 -- SERVER ONLY: build the folder + RemoteEvents, then parent the folder LAST so

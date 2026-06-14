@@ -21,12 +21,14 @@ local CameraDirector = require(scripts:WaitForChild("CameraDirector"))
 local CarryController = require(scripts:WaitForChild("CarryController"))
 local GoalFx = require(scripts:WaitForChild("GoalFx"))
 local PhotoMode = require(scripts:WaitForChild("PhotoMode"))
+local GoalMarker = require(scripts:WaitForChild("GoalMarker"))
 
 HudUI.mount(playerGui)
 MenuUI.mount(playerGui)
 QuestUI.mount(playerGui)
 InputController.start(HudUI)
 PhotoMode.init()
+GoalMarker.init()
 
 Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 	HudUI.updateMatch(snap)
@@ -37,6 +39,7 @@ Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 		local active = (p == "Countdown" or p == "Playing" or p == "GoalPause" or p == "Shootout")
 		MenuUI.matchActive(active)
 		QuestUI.matchActive(active)
+		GoalMarker.refresh() -- team can flip between matches
 	end
 end)
 Remotes.get(Remotes.Countdown).OnClientEvent:Connect(function(n)
@@ -109,6 +112,9 @@ Remotes.get(Remotes.ProgressionSync).OnClientEvent:Connect(function(data)
 end)
 Remotes.get(Remotes.Toast).OnClientEvent:Connect(function(text)
 	HudUI.toast(text)
+end)
+Remotes.get(Remotes.XpGain).OnClientEvent:Connect(function(amount, label)
+	HudUI.xpGain(amount, label)
 end)
 
 -- Tell the player their job in plain words whenever it changes.
