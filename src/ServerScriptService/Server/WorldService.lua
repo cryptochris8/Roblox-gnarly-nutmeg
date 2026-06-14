@@ -726,8 +726,11 @@ local function tuneLighting()
 		atmo.Parent = Lighting
 		Lighting.ClockTime = 14
 		Lighting.Brightness = 2.5
-		Lighting.GlobalShadows = true
-		Lighting.OutdoorAmbient = Color3.fromRGB(140, 140, 140)
+		-- shadows OFF: 4 wide floodlights shadow-casting ~700 crowd parts + 12
+		-- R15 rigs was the #1 mobile FPS killer (perf audit); the neon flood
+		-- heads + bright sky keep the stadium reading well without them
+		Lighting.GlobalShadows = false
+		Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
 	end)
 end
 

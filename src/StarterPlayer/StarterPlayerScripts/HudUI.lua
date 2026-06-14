@@ -182,15 +182,18 @@ function HudUI.mount(playerGui)
 	goalLabel = UiTheme.make("TextLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.42, 0),
-		Size = UDim2.fromOffset(600, 120),
+		Size = UDim2.new(0.92, 0, 0, 110),
 		BackgroundTransparency = 1,
 		Font = UiTheme.Header,
-		TextSize = 84,
+		TextScaled = true,
 		TextColor3 = C.Panel,
 		Text = "GOAL!",
 		Visible = false,
 		Parent = goalFrame,
 	})
+	local goalCap = Instance.new("UITextSizeConstraint")
+	goalCap.MaxTextSize = 92
+	goalCap.Parent = goalLabel
 	UiTheme.stroke(C.Ink, 3, goalLabel)
 
 	-- XP bar + level (bottom right)
@@ -281,12 +284,15 @@ function HudUI.mount(playerGui)
 	UiTheme.stroke(C.Ink, 3, megLabel)
 
 	-- Toast (under the scoreboard)
+	-- a dark pill that hugs the text: white-on-grass was failing contrast
 	toastLabel = UiTheme.make("TextLabel", {
 		Name = "Toast",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 104),
-		Size = UDim2.fromOffset(420, 30),
-		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(0, 36),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = C.PanelDark,
+		BackgroundTransparency = 0.15,
 		Font = UiTheme.Body,
 		TextSize = 20,
 		TextColor3 = C.Panel,
@@ -294,6 +300,14 @@ function HudUI.mount(playerGui)
 		Visible = false,
 		Parent = gui,
 	})
+	UiTheme.corner(12, toastLabel)
+	local toastPad = Instance.new("UIPadding")
+	toastPad.PaddingLeft = UDim.new(0, 16)
+	toastPad.PaddingRight = UDim.new(0, 16)
+	toastPad.Parent = toastLabel
+	local toastCap = Instance.new("UISizeConstraint")
+	toastCap.MaxSize = Vector2.new(640, math.huge)
+	toastCap.Parent = toastLabel
 	UiTheme.stroke(C.Ink, 2, toastLabel)
 
 	-- Full-time result banner
