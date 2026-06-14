@@ -117,6 +117,9 @@ end)
 Remotes.get(Remotes.XpGain).OnClientEvent:Connect(function(amount, label)
 	HudUI.xpGain(amount, label)
 end)
+Remotes.get(Remotes.MatchSummary).OnClientEvent:Connect(function(data)
+	HudUI.matchSummary(data)
+end)
 
 -- Tell the player their job in plain words whenever it changes.
 local ROLE_CALLOUTS = {

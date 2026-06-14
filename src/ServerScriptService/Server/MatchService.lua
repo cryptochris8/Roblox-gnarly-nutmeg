@@ -65,6 +65,10 @@ local matchStateEvent: RemoteEvent
 local countdownEvent: RemoteEvent
 local goalEvent: RemoteEvent
 local toastEvent: RemoteEvent
+local summaryEvent: RemoteEvent
+-- per-human snapshot taken at kickoff so the full-time card can show THIS match's
+-- gains (XP, goals, nutmegs) by diffing against lifetime totals
+local matchStart: { [Player]: { xp: number, goals: number, nutmegs: number } } = {}
 
 local function snapshot()
 	local redInfo = TeamService.info("Red")
@@ -611,6 +615,17 @@ local function runMatchLoop()
 			end
 		end
 		AIService.spawnForMatch()
+		-- snapshot each human's lifetime tallies so the full-time card can show
+		-- THIS match's gains (XP / goals / nutmegs) by diffing at the final whistle
+		table.clear(matchStart)
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local p = PlayerDataService.get(plr) :: any
+			matchStart[plr] = {
+				xp = ProgressionService.getTotalXP(plr),
+				goals = p and (tonumber(p.Goals) or 0) or 0,
+				nutmegs = p and (tonumber(p.Nutmegs) or 0) or 0,
+			}
+		end
 		-- stadium mood for this match: midday, late sun, or under the lights
 		pcall(function()
 			local Lighting = game:GetService("Lighting")
@@ -683,6 +698,23 @@ local function runMatchLoop()
 				end
 				if outcome ~= "draw" then
 					ProgressionService.noteLeagueResult(plr, outcome == "win")
+				end
+				-- personal full-time card: THIS match's gains, sent only to this player.
+				-- Computed after all XP is granted so it includes the win/match bonuses.
+				if summaryEvent then
+					local s = matchStart[plr]
+					local pp = PlayerDataService.get(plr) :: any
+					local curGoals = pp and (tonumber(pp.Goals) or 0) or 0
+					local curMegs = pp and (tonumber(pp.Nutmegs) or 0) or 0
+					summaryEvent:FireClient(plr, {
+						outcome = outcome,
+						xpEarned = s and math.max(0, ProgressionService.getTotalXP(plr) - s.xp) or 0,
+						level = ProgressionService.getLevel(plr),
+						goals = s and math.max(0, curGoals - s.goals) or 0,
+						nutmegs = s and math.max(0, curMegs - s.nutmegs) or 0,
+						scoreYour = (a.team == "Red") and scores.Red or scores.Blue,
+						scoreOpp = (a.team == "Red") and scores.Blue or scores.Red,
+					})
 				end
 			end
 		end
@@ -766,6 +798,7 @@ function MatchService.init(_world: WorldService.World)
 	countdownEvent = Remotes.get(Remotes.Countdown)
 	goalEvent = Remotes.get(Remotes.GoalScored)
 	toastEvent = Remotes.get(Remotes.Toast)
+	summaryEvent = Remotes.get(Remotes.MatchSummary)
 
 	BallService.onGoal = onGoal
 
@@ -789,6 +822,7 @@ function MatchService.init(_world: WorldService.World)
 		TeamService.unassign(player)
 		preferred[player] = nil
 		lastOppTier[player] = nil
+		matchStart[player] = nil
 	end)
 
 	-- Periodic state broadcast (cheap; keeps late/altered clients in sync).

@@ -128,6 +128,12 @@ function ProgressionService.getLevel(player: Player): number
 	return level
 end
 
+-- Lifetime XP total — the post-match card diffs this across a match.
+function ProgressionService.getTotalXP(player: Player): number
+	local prog = progression(player)
+	return prog and (tonumber(prog.XP) or 0) or 0
+end
+
 function ProgressionService.getLeagueTier(player: Player): number
 	local prog = progression(player)
 	if not prog then

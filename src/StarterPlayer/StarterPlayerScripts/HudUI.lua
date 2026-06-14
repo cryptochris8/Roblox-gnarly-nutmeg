@@ -22,7 +22,7 @@ local countdownLabel
 local goalFrame, goalLabel
 local megLabel
 local toastLabel
-local resultFrame, resultLabel
+local resultFrame, resultLabel, summaryLabel
 local ballChip
 
 local function fmtClock(t)
@@ -310,12 +310,12 @@ function HudUI.mount(playerGui)
 	toastCap.Parent = toastLabel
 	UiTheme.stroke(C.Ink, 2, toastLabel)
 
-	-- Full-time result banner
+	-- Full-time result banner (team line on top, your personal card below)
 	resultFrame = UiTheme.make("Frame", {
 		Name = "Result",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.fromOffset(520, 120),
+		Size = UDim2.fromOffset(540, 172),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.05,
 		Visible = false,
@@ -325,11 +325,25 @@ function HudUI.mount(playerGui)
 	resultLabel = UiTheme.make("TextLabel", {
 		BackgroundTransparency = 1,
 		Font = UiTheme.Header,
-		TextSize = 30,
+		TextSize = 28,
 		TextColor3 = C.Panel,
 		Text = "",
-		Size = UDim2.new(1, -24, 1, -24),
-		Position = UDim2.fromOffset(12, 12),
+		Size = UDim2.new(1, -24, 0, 80),
+		Position = UDim2.fromOffset(12, 16),
+		TextWrapped = true,
+		Parent = resultFrame,
+	})
+	-- your own match: "+85 XP   ⚽ 2   🪄 1   •   Level 4" (set by HudUI.matchSummary)
+	summaryLabel = UiTheme.make("TextLabel", {
+		Name = "Summary",
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 22,
+		TextColor3 = Color3.fromRGB(245, 196, 60),
+		Text = "",
+		Visible = false,
+		Size = UDim2.new(1, -24, 0, 60),
+		Position = UDim2.fromOffset(12, 100),
 		TextWrapped = true,
 		Parent = resultFrame,
 	})
@@ -405,6 +419,9 @@ function HudUI.updateMatch(snap)
 		resultFrame.Visible = true
 	else
 		resultFrame.Visible = false
+		if summaryLabel then
+			summaryLabel.Visible = false -- reset; the next full-time sets it fresh
+		end
 	end
 end
 
@@ -554,6 +571,30 @@ local function showNextToast()
 	toastLabel.Visible = true
 	toastLabel.TextTransparency = 0
 	task.delay(2.1, showNextToast)
+end
+
+-- Full-time personal card: your own gains line, shown beneath the team result.
+-- Always positive (you always earn at least the match-played XP), so even a loss
+-- ends on progress. Lives inside the result banner, which only shows between
+-- matches — it never touches the live play screen.
+function HudUI.matchSummary(data)
+	if not summaryLabel or not resultFrame or type(data) ~= "table" then
+		return
+	end
+	local bits = {}
+	if (tonumber(data.xpEarned) or 0) > 0 then
+		bits[#bits + 1] = ("✨ +%d XP"):format(data.xpEarned)
+	end
+	if (tonumber(data.goals) or 0) > 0 then
+		bits[#bits + 1] = ("⚽ %d"):format(data.goals)
+	end
+	if (tonumber(data.nutmegs) or 0) > 0 then
+		bits[#bits + 1] = ("🪄 %d"):format(data.nutmegs)
+	end
+	bits[#bits + 1] = ("Level %d"):format(tonumber(data.level) or 1)
+	summaryLabel.Text = table.concat(bits, "    ")
+	summaryLabel.Visible = true
+	resultFrame.Visible = true
 end
 
 function HudUI.toast(text)
