@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local Roles = require(Shared:WaitForChild("Roles"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Leagues = require(Shared:WaitForChild("Leagues"))
 
 local WorldService = require(script.Parent.WorldService)
 local TeamService = require(script.Parent.TeamService)
@@ -48,6 +49,7 @@ local abortRequested = false
 local scores = { Red = 0, Blue = 0 }
 local half = 0
 local scorerTally: { [string]: number } = {} -- goals per scorer this match (commentary "on fire")
+local lastOppTier: { [Player]: number } = {} -- per-human announce of opponent difficulty, on change
 local timeRemaining = 0
 local resultText = ""
 local goldenGoal = false
@@ -573,16 +575,39 @@ local function runMatchLoop()
 		if setupHook then
 			pcall(setupHook) -- tournament paints nation identities before kits spawn
 		end
-		-- bot difficulty: the highest-league human present sets the bar
-		local tier = 1
-		for _, plr in ipairs(Players:GetPlayers()) do
-			tier = math.max(tier, ProgressionService.getLeagueTier(plr))
-		end
-		if DifficultyService.setTier(tier) and toastEvent then
-			toastEvent:FireAllClients(("🏅 Bot difficulty: %s"):format(DifficultyService.get().name))
-		end
+		-- assign everyone first so per-team difficulty can read their teams
 		for _, plr in ipairs(Players:GetPlayers()) do
 			ensureAssigned(plr)
+		end
+		-- PER-TEAM difficulty: a team's bots are competent TEAMMATES (>= PRO) to
+		-- their own humans AND OPPONENTS scaled to the humans on the OTHER team.
+		-- A solo human thus gets PRO teammates + opponents scaled to their league;
+		-- one veteran can no longer force hard bots onto newcomers server-wide.
+		local PRO_TIER = 3
+		local function strongest(teamName: string): number
+			local t = 0
+			for _, plr in ipairs(Players:GetPlayers()) do
+				local a = TeamService.getAssignment(plr)
+				if a and a.team == teamName then
+					t = math.max(t, ProgressionService.getLeagueTier(plr))
+				end
+			end
+			return t
+		end
+		local redH, blueH = strongest("Red"), strongest("Blue")
+		local redTier = math.clamp(math.max((redH > 0) and PRO_TIER or 0, blueH), 1, Leagues.MaxTier)
+		local blueTier = math.clamp(math.max((blueH > 0) and PRO_TIER or 0, redH), 1, Leagues.MaxTier)
+		DifficultyService.setTiers(redTier, blueTier)
+		-- tell each human, only when it changes, what they're now up against
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local a = TeamService.getAssignment(plr)
+			if a and toastEvent then
+				local oppLeague = DifficultyService.get(TeamService.info(a.team).opponent)
+				if lastOppTier[plr] ~= oppLeague.tier then
+					lastOppTier[plr] = oppLeague.tier
+					toastEvent:FireClient(plr, ("🏅 Opponents: %s"):format(oppLeague.name))
+				end
+			end
 		end
 		AIService.spawnForMatch()
 		-- stadium mood for this match: midday, late sun, or under the lights
@@ -653,7 +678,7 @@ local function runMatchLoop()
 				if outcome == "win" then
 					ProgressionService.note(plr, "wins")
 					LeaderboardService.addWin(plr)
-					BadgeService.win(plr, DifficultyService.get().tier)
+					BadgeService.win(plr, DifficultyService.get(TeamService.info(a.team).opponent).tier)
 				end
 				if outcome ~= "draw" then
 					ProgressionService.noteLeagueResult(plr, outcome == "win")
@@ -762,6 +787,7 @@ function MatchService.init(_world: WorldService.World)
 	Players.PlayerRemoving:Connect(function(player)
 		TeamService.unassign(player)
 		preferred[player] = nil
+		lastOppTier[player] = nil
 	end)
 
 	-- Periodic state broadcast (cheap; keeps late/altered clients in sync).

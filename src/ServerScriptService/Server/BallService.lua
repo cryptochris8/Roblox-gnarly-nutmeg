@@ -482,7 +482,7 @@ function BallService.shootFrom(fromModel: Model, charge: number, spreadDeg: numb
 	-- banana around the keeper. Blasted shots stay straight.
 	local wantsCurl: boolean
 	if fromModel:GetAttribute("IsBot") == true then
-		wantsCurl = DifficultyService.get().tier >= KICK.CurlBotTier and math.random() < 0.6
+		wantsCurl = DifficultyService.get(team).tier >= KICK.CurlBotTier and math.random() < 0.6
 	else
 		wantsCurl = charge >= KICK.CurlMinCharge and charge <= KICK.CurlMaxCharge
 	end
@@ -916,7 +916,7 @@ local function tryPickup()
 				-- (reach scales with the difficulty league — only for BOT keepers)
 				local reach = isKeeper and BALL.KeeperReach or BALL.PickupRadius
 				if isKeeper and f.isBot then
-					reach *= DifficultyService.get().keeperReachMult
+					reach *= DifficultyService.get(f.team).keeperReachMult
 				end
 				if isReceiver then
 					reach *= KICK.ReceptionAssist -- the pass sticks to its target

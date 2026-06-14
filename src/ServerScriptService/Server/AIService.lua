@@ -201,7 +201,7 @@ local function makeBot(team: string, role: Roles.RoleKey): Model
 	local hum = bot:FindFirstChildOfClass("Humanoid")
 	if hum then
 		local base = def.isKeeper and (GameConfig.Player.WalkSpeed + 4) or GameConfig.Player.WalkSpeed
-		hum.WalkSpeed = base * DifficultyService.get().walkMult
+		hum.WalkSpeed = base * DifficultyService.get(team).walkMult
 		hum.AutoRotate = true
 		hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None -- no floating name tags
 		-- the Animator must exist BEFORE the model replicates for server-played
@@ -326,7 +326,7 @@ local function decideBot(entry: BotEntry)
 		local dGoal = hdist(myPos, targetGoal)
 		if dGoal < SHOOT_RANGE then
 			-- cap at the sweet spot: bots don't balloon overcharged shots
-			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), DifficultyService.get().botShotSpread)
+			BallService.shootFrom(model, math.clamp(dGoal / 55, 0.5, 0.8), DifficultyService.get(team).botShotSpread)
 			return
 		end
 		-- GIVE-AND-GO: a human just slipped me this ball and kept their run

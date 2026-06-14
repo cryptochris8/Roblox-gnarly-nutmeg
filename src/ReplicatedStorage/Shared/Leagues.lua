@@ -18,10 +18,10 @@ export type League = {
 local Leagues = {}
 
 Leagues.PromoteWins = 3
-Leagues.RelegateLosses = 3
+Leagues.RelegateLosses = 4 -- climbing is faster than falling; one bad night won't drop you
 
 local List: { League } = {
-	{ tier = 1, name = "AMATEUR", color = Color3.fromRGB(150, 200, 150), aiTick = 0.55, walkMult = 0.88, botShotSpread = 8, keeperReachMult = 0.8 },
+	{ tier = 1, name = "AMATEUR", color = Color3.fromRGB(150, 200, 150), aiTick = 0.50, walkMult = 0.92, botShotSpread = 8, keeperReachMult = 0.8 },
 	{ tier = 2, name = "SEMI-PRO", color = Color3.fromRGB(120, 190, 220), aiTick = 0.45, walkMult = 0.94, botShotSpread = 6.5, keeperReachMult = 0.9 },
 	{ tier = 3, name = "PRO", color = Color3.fromRGB(245, 196, 60), aiTick = 0.4, walkMult = 1.0, botShotSpread = 5, keeperReachMult = 1.0 },
 	{ tier = 4, name = "ELITE", color = Color3.fromRGB(245, 130, 60), aiTick = 0.33, walkMult = 1.05, botShotSpread = 4, keeperReachMult = 1.1 },

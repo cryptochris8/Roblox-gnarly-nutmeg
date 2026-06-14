@@ -142,7 +142,10 @@ function ProgressionService.noteLeagueResult(player: Player, won: boolean)
 		return
 	end
 	local lg = prog.League
+	-- wins and losses CANCEL so the ladder tracks a NET record (no yo-yo where
+	-- a win fails to pay down accumulated losses)
 	if won then
+		lg.losses = math.max(0, (tonumber(lg.losses) or 0) - 1)
 		lg.wins = (tonumber(lg.wins) or 0) + 1
 		if lg.wins >= Leagues.PromoteWins and lg.tier < Leagues.MaxTier then
 			lg.tier += 1
@@ -152,6 +155,7 @@ function ProgressionService.noteLeagueResult(player: Player, won: boolean)
 			ProgressionService.addXP(player, 100, "promotion")
 		end
 	else
+		lg.wins = math.max(0, (tonumber(lg.wins) or 0) - 1)
 		lg.losses = (tonumber(lg.losses) or 0) + 1
 		if lg.losses >= Leagues.RelegateLosses and lg.tier > 1 then
 			lg.tier -= 1
