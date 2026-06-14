@@ -107,9 +107,31 @@ BallService.onPassComplete = function(kickerModel, _receiverModel)
 	end
 end
 
+-- Transient "why didn't that work" cue, throttled so mashing can't spam it —
+-- the #1 new-player confusion was tapping Pass/Shoot with no ball and getting
+-- dead air. Stays a brief pill; never adds persistent screen clutter.
+local lastCue: { [Player]: number } = {}
+local function cue(plr: Player, text: string)
+	if (lastCue[plr] or 0) + 1.6 > os.clock() then
+		return
+	end
+	lastCue[plr] = os.clock()
+	toastRemote:FireClient(plr, text)
+end
+Players.PlayerRemoving:Connect(function(plr)
+	lastCue[plr] = nil
+end)
+
 Remotes.get(Remotes.RequestPass).OnServerEvent:Connect(function(player)
 	local char = player.Character
-	if char and BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "pass", 0.35) then
+	if not char then
+		return
+	end
+	if not BallService.carrierIsPlayer(player) then
+		cue(player, "⚽ Get the ball first!")
+		return
+	end
+	if PlayerService.tryAction(player, "pass", 0.35) then
 		PlayerService.spendStamina(player, STA.PassCost)
 		BallService.passFrom(char)
 	end
@@ -120,7 +142,14 @@ Remotes.get(Remotes.RequestShoot).OnServerEvent:Connect(function(player, charge)
 	if type(charge) ~= "number" then
 		charge = 1
 	end
-	if char and BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "shoot", 0.3) then
+	if not char then
+		return
+	end
+	if not BallService.carrierIsPlayer(player) then
+		cue(player, "⚽ Get the ball first!")
+		return
+	end
+	if PlayerService.tryAction(player, "shoot", 0.3) then
 		PlayerService.spendStamina(player, STA.ShootCost)
 		if BallService.shootFrom(char, charge, GameConfig.Kick.HumanShotSpreadDeg) then
 			ProgressionService.note(player, "shots")
@@ -146,7 +175,11 @@ Remotes.get(Remotes.RequestSkill).OnServerEvent:Connect(function(player, skillId
 	end
 	local def = Skills.byId(skillId)
 	local char = player.Character
-	if not def or not char or not BallService.carrierIsPlayer(player) then
+	if not def or not char then
+		return
+	end
+	if not BallService.carrierIsPlayer(player) then
+		cue(player, "⚽ Get the ball first!")
 		return
 	end
 	if ProgressionService.getLevel(player) < def.unlockLevel then
@@ -180,7 +213,14 @@ end)
 
 Remotes.get(Remotes.RequestNutmeg).OnServerEvent:Connect(function(player)
 	local char = player.Character
-	if char and BallService.carrierIsPlayer(player) and PlayerService.tryAction(player, "nutmeg", NUTMEG.Cooldown) then
+	if not char then
+		return
+	end
+	if not BallService.carrierIsPlayer(player) then
+		cue(player, "⚽ Get the ball first!")
+		return
+	end
+	if PlayerService.tryAction(player, "nutmeg", NUTMEG.Cooldown) then
 		PlayerService.spendStamina(player, STA.NutmegCost)
 		BallService.nutmegFrom(char)
 	end

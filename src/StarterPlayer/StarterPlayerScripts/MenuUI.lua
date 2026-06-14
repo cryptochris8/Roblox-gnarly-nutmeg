@@ -15,6 +15,10 @@ local C = UiTheme.Colors
 
 local MenuUI = {}
 
+-- refs to the between-match panels/buttons so MenuUI.matchActive can clear them
+-- off-screen during live play (assigned in mount)
+local refs = nil
+
 function MenuUI.mount(playerGui)
 	local gui = UiTheme.make("ScreenGui", {
 		Name = "GnarlyMenu",
@@ -328,6 +332,8 @@ function MenuUI.mount(playerGui)
 		end
 	end
 
+	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn }
+
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)
 	if not UserInputService.TouchEnabled then
 		UiTheme.make("TextLabel", {
@@ -341,6 +347,35 @@ function MenuUI.mount(playerGui)
 			Text = "Hold LMB = Shoot   •   E = Pass   •   Q = Nutmeg   •   F = Tackle   •   Shift = Sprint",
 			Parent = gui,
 		}).TextStrokeTransparency = 0.4
+	end
+end
+
+-- Called by ClientController on every match-state change. During live play we
+-- close any open panel and — on mobile — clear the whole menu so the pitch is
+-- unobstructed; the menu returns between matches.
+function MenuUI.matchActive(active)
+	if not refs then
+		return
+	end
+	if active then
+		if refs.picker then
+			refs.picker.Visible = false
+		end
+		if refs.locker then
+			refs.locker.Visible = false
+		end
+	end
+	if UserInputService.TouchEnabled then
+		local show = not active
+		if refs.panel then
+			refs.panel.Visible = show
+		end
+		if refs.trophyBtn then
+			refs.trophyBtn.Visible = show
+		end
+		if refs.lockerBtn then
+			refs.lockerBtn.Visible = show
+		end
 	end
 end
 

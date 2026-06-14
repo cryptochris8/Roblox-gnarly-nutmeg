@@ -30,6 +30,14 @@ PhotoMode.init()
 
 Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 	HudUI.updateMatch(snap)
+	-- keep the pitch clear during live play: menus close (and on mobile fully
+	-- hide), returning only between matches
+	if snap then
+		local p = snap.phase
+		local active = (p == "Countdown" or p == "Playing" or p == "GoalPause" or p == "Shootout")
+		MenuUI.matchActive(active)
+		QuestUI.matchActive(active)
+	end
 end)
 Remotes.get(Remotes.Countdown).OnClientEvent:Connect(function(n)
 	HudUI.countdown(n)

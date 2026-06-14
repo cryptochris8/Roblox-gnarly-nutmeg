@@ -15,6 +15,7 @@ local C = UiTheme.Colors
 local QuestUI = {}
 
 local panel
+local toggle
 local streakLabel
 local leagueLabel
 local careerLine1
@@ -34,7 +35,7 @@ function QuestUI.mount(playerGui)
 	-- mobile: a compact 📋 icon in the top-left row; desktop: a labelled button
 	-- below the Locker (was colliding with the Locker button at y=170)
 	local touch = UserInputService.TouchEnabled
-	local toggle = UiTheme.make("TextButton", {
+	toggle = UiTheme.make("TextButton", {
 		Position = UDim2.fromOffset(touch and 110 or 18, touch and 82 or 218),
 		Size = UDim2.fromOffset(touch and 44 or 184, 40),
 		BackgroundColor3 = Color3.fromRGB(90, 200, 140),
@@ -249,6 +250,17 @@ function QuestUI.progression(data)
 		careerLine2.Text = ("👟 %d nutmegs  •  🏆 %d troph%s  •  %d matches"):format(
 			tonumber(c.nutmegs) or 0, tonumber(c.trophies) or 0,
 			(tonumber(c.trophies) or 0) == 1 and "y" or "ies", tonumber(c.matches) or 0)
+	end
+end
+
+-- During live play: close the panel, and on mobile hide the 📋 button too so
+-- the pitch stays clear. The button returns between matches.
+function QuestUI.matchActive(active)
+	if active and panel then
+		panel.Visible = false
+	end
+	if toggle and UserInputService.TouchEnabled then
+		toggle.Visible = not active
 	end
 end
 
