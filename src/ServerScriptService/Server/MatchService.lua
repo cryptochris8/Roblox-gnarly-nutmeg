@@ -262,6 +262,7 @@ local function onGoal(scoreTeam: string)
 			red = scores.Red,
 			blue = scores.Blue,
 			scorer = scorerName,
+			scorerUserId = scorerUid, -- 0 for a bot; clients match on this, not the non-unique name
 		})
 	end
 	AudioService.goal(streak)

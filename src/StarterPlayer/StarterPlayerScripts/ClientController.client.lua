@@ -89,7 +89,8 @@ Remotes.get(Remotes.GoalScored).OnClientEvent:Connect(function(info)
 	task.spawn(CameraDirector.goalReplay, info)
 	task.spawn(GoalFx.goal, info)
 	if info and player.Team and player.Team.Name == info.team then
-		task.spawn(celebrateLocally, info.scorer == player.DisplayName)
+		-- match the scorer by UserId, not DisplayName (names aren't unique)
+		task.spawn(celebrateLocally, info.scorerUserId == player.UserId)
 	end
 	HudUI.goal(info)
 end)
