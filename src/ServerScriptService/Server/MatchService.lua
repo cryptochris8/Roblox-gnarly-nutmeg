@@ -812,6 +812,12 @@ function MatchService.init(_world: WorldService.World)
 	-- A human who joins mid-match is slotted in (replacing a bot in that role).
 	Players.PlayerAdded:Connect(function(player)
 		local team, role = TeamService.assignHuman(player, preferred[player])
+		-- Don't hot-swap a bot out mid-SHOOTOUT — pulling the staged keeper or
+		-- shooter would disrupt the kicks. The team is still assigned (so the result
+		-- counts for them); the next match setup slots them onto the pitch properly.
+		if shootoutActive then
+			return
+		end
 		AIService.removeBotByRole(team, role)
 		if player.Character then
 			PlayerService.registerFootballer(player)
