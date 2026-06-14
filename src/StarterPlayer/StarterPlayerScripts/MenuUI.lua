@@ -23,10 +23,13 @@ function MenuUI.mount(playerGui)
 		Parent = playerGui,
 	})
 
+	-- mobile gets a compact top-left block (the buttons used between matches
+	-- shouldn't crowd the pitch or the movement thumb-zone)
+	local touch = UserInputService.TouchEnabled
 	local panel = UiTheme.make("Frame", {
 		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 18, 0, 18),
-		Size = UDim2.fromOffset(184, 96),
+		Position = UDim2.fromOffset(touch and 10 or 18, touch and 6 or 18),
+		Size = UDim2.fromOffset(touch and 150 or 184, touch and 70 or 96),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.15,
 		Parent = gui,
@@ -36,11 +39,11 @@ function MenuUI.mount(playerGui)
 	UiTheme.make("TextLabel", {
 		BackgroundTransparency = 1,
 		Font = UiTheme.Header,
-		TextSize = 14,
+		TextSize = touch and 12 or 14,
 		TextColor3 = C.Panel,
 		Text = "PICK YOUR TEAM",
-		Position = UDim2.fromOffset(0, 8),
-		Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.fromOffset(0, touch and 5 or 8),
+		Size = UDim2.new(1, 0, 0, touch and 14 or 18),
 		Parent = panel,
 	})
 
@@ -48,11 +51,11 @@ function MenuUI.mount(playerGui)
 
 	local function teamButton(name, color, x)
 		local b = UiTheme.make("TextButton", {
-			Position = UDim2.fromOffset(x, 34),
-			Size = UDim2.fromOffset(78, 46),
+			Position = UDim2.fromOffset(x, touch and 26 or 34),
+			Size = UDim2.fromOffset(touch and 64 or 78, touch and 36 or 46),
 			BackgroundColor3 = color,
 			Font = UiTheme.Header,
-			TextSize = 18,
+			TextSize = touch and 15 or 18,
 			TextColor3 = C.Panel,
 			Text = name,
 			AutoButtonColor = true,
@@ -65,20 +68,21 @@ function MenuUI.mount(playerGui)
 		return b
 	end
 
-	teamButton("RED", C.Red, 12)
-	teamButton("BLUE", C.Blue, 94)
+	teamButton("RED", C.Red, touch and 8 or 12)
+	teamButton("BLUE", C.Blue, touch and 78 or 94)
 
 	-- THE NUTMEG TROPHY: launch a tournament run as your chosen nation
 	local startEvent = Remotes.get(Remotes.StartTournament)
 	local gold = Color3.fromRGB(245, 196, 60)
+	-- mobile: 🏆 / 👕 / 📋 become a compact icon row under the team panel
 	local trophyBtn = UiTheme.make("TextButton", {
-		Position = UDim2.fromOffset(18, 122),
-		Size = UDim2.fromOffset(184, 40),
+		Position = UDim2.fromOffset(touch and 10 or 18, touch and 82 or 122),
+		Size = UDim2.fromOffset(touch and 44 or 184, 40),
 		BackgroundColor3 = gold,
 		Font = UiTheme.Header,
-		TextSize = 15,
+		TextSize = touch and 20 or 15,
 		TextColor3 = C.Ink,
-		Text = "🏆 NUTMEG TROPHY",
+		Text = touch and "🏆" or "🏆 NUTMEG TROPHY",
 		AutoButtonColor = true,
 		Parent = gui,
 	})
@@ -191,13 +195,13 @@ function MenuUI.mount(playerGui)
 
 	-- 👕 THE LOCKER: equip earned boots / trails / celebrations
 	local lockerBtn = UiTheme.make("TextButton", {
-		Position = UDim2.fromOffset(18, 170),
-		Size = UDim2.fromOffset(184, 40),
+		Position = UDim2.fromOffset(touch and 60 or 18, touch and 82 or 170),
+		Size = UDim2.fromOffset(touch and 44 or 184, 40),
 		BackgroundColor3 = Color3.fromRGB(120, 200, 255),
 		Font = UiTheme.Header,
-		TextSize = 15,
+		TextSize = touch and 20 or 15,
 		TextColor3 = C.Ink,
-		Text = "👕 LOCKER",
+		Text = touch and "👕" or "👕 LOCKER",
 		AutoButtonColor = true,
 		Parent = gui,
 	})

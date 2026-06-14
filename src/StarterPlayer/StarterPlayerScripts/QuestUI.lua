@@ -4,6 +4,7 @@
 -- from the server's ProgressionSync snapshots.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Skills = require(Shared:WaitForChild("Skills"))
@@ -30,14 +31,17 @@ function QuestUI.mount(playerGui)
 		Parent = playerGui,
 	})
 
+	-- mobile: a compact 📋 icon in the top-left row; desktop: a labelled button
+	-- below the Locker (was colliding with the Locker button at y=170)
+	local touch = UserInputService.TouchEnabled
 	local toggle = UiTheme.make("TextButton", {
-		Position = UDim2.fromOffset(18, 170),
-		Size = UDim2.fromOffset(184, 40),
+		Position = UDim2.fromOffset(touch and 110 or 18, touch and 82 or 218),
+		Size = UDim2.fromOffset(touch and 44 or 184, 40),
 		BackgroundColor3 = Color3.fromRGB(90, 200, 140),
 		Font = UiTheme.Header,
-		TextSize = 15,
+		TextSize = touch and 20 or 15,
 		TextColor3 = C.Ink,
-		Text = "📋 DAILY QUESTS",
+		Text = touch and "📋" or "📋 DAILY QUESTS",
 		AutoButtonColor = true,
 		Parent = gui,
 	})
