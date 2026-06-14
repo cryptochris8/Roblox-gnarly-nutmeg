@@ -332,7 +332,89 @@ function MenuUI.mount(playerGui)
 		end
 	end
 
-	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn }
+	-- ❓ HOW TO PLAY: a one-screen card for first-timers (and our youngest players).
+	-- Auto-shows on the very first visit and reopens from this button. Like the
+	-- other menus it clears off-screen during live play, so it never clutters.
+	local helpBtn = UiTheme.make("TextButton", {
+		Position = UDim2.fromOffset(touch and 110 or 18, touch and 82 or 218),
+		Size = UDim2.fromOffset(touch and 44 or 184, 40),
+		BackgroundColor3 = Color3.fromRGB(90, 200, 140),
+		Font = UiTheme.Header,
+		TextSize = touch and 20 or 15,
+		TextColor3 = C.Ink,
+		Text = touch and "❓" or "❓ HOW TO PLAY",
+		AutoButtonColor = true,
+		Parent = gui,
+	})
+	UiTheme.corner(12, helpBtn)
+
+	local howto = UiTheme.make("Frame", {
+		Name = "HowTo",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.46, 0),
+		Size = UDim2.new(0.9, 0, 0.8, 0),
+		BackgroundColor3 = C.PanelDark,
+		BackgroundTransparency = 0.03,
+		Visible = false,
+		Parent = gui,
+	})
+	local howtoCap = Instance.new("UISizeConstraint")
+	howtoCap.MaxSize = Vector2.new(500, 380)
+	howtoCap.Parent = howto
+	UiTheme.corner(18, howto)
+	UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 24,
+		TextColor3 = gold,
+		Text = "⚽ HOW TO PLAY",
+		Position = UDim2.fromOffset(0, 14),
+		Size = UDim2.new(1, 0, 0, 30),
+		Parent = howto,
+	})
+	local controlsText = touch
+			and "Use the buttons on the lower-right.\n\n⚽ HOLD the SHOOT button to power up, then let go to kick!\n\nTap PASS, TACKLE and NUTMEG. Drag the left side of the screen to run."
+		or "MOVE:  W A S D        SPRINT:  hold Shift\n\nPASS:  E        SHOOT:  hold Left-Click\n\nTACKLE:  F        NUTMEG:  Q"
+	UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = touch and 16 or 17,
+		TextColor3 = C.Panel,
+		Text = "🥅 Score more goals than the other team to win!\n\n⭐ Shoot at the goal under the gold ⬇ SCORE sign.\n\n"
+			.. controlsText
+			.. "\n\nHave a blast! 🎉",
+		Position = UDim2.fromOffset(20, 50),
+		Size = UDim2.new(1, -40, 1, -116),
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Parent = howto,
+	})
+	local gotIt = UiTheme.make("TextButton", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -14),
+		Size = UDim2.fromOffset(200, 44),
+		BackgroundColor3 = gold,
+		Font = UiTheme.Header,
+		TextSize = 20,
+		TextColor3 = C.Ink,
+		Text = "GOT IT!",
+		AutoButtonColor = true,
+		Parent = howto,
+	})
+	UiTheme.corner(12, gotIt)
+	gotIt.MouseButton1Click:Connect(function()
+		howto.Visible = false
+	end)
+	helpBtn.MouseButton1Click:Connect(function()
+		howto.Visible = not howto.Visible
+	end)
+
+	-- ClientController pops this once on a brand-new player's first sync.
+	function MenuUI.showHowTo()
+		howto.Visible = true
+	end
+
+	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto }
 
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)
 	if not UserInputService.TouchEnabled then
@@ -364,6 +446,9 @@ function MenuUI.matchActive(active)
 		if refs.locker then
 			refs.locker.Visible = false
 		end
+		if refs.howto then
+			refs.howto.Visible = false
+		end
 	end
 	if UserInputService.TouchEnabled then
 		local show = not active
@@ -375,6 +460,9 @@ function MenuUI.matchActive(active)
 		end
 		if refs.lockerBtn then
 			refs.lockerBtn.Visible = show
+		end
+		if refs.helpBtn then
+			refs.helpBtn.Visible = show
 		end
 	end
 end

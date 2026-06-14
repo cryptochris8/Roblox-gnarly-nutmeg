@@ -153,12 +153,11 @@ Remotes.get(Remotes.ProgressionSync).OnClientEvent:Connect(function(data)
 		return -- they already know the drill
 	end
 	HudUI.toast("👋 Welcome to GNARLY NUTMEG!")
-	task.delay(2.2, function()
-		HudUI.toast("⚽ Score more goals than the other team!")
-	end)
-	task.delay(4.4, function()
-		HudUI.toast("Pass to friends, hold Shoot to power up, have a blast!")
-	end)
+	-- the full HOW-TO card (objective + controls) carries the rest, and stays
+	-- reopenable from the ❓ button — better than a few toasts that scroll away
+	if MenuUI.showHowTo then
+		task.delay(1.0, MenuUI.showHowTo)
+	end
 end)
 
 -- We're ready: ask the server for the current match state.
