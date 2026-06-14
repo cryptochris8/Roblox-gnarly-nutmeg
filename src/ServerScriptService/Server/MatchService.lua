@@ -825,10 +825,13 @@ function MatchService.init(_world: WorldService.World)
 		matchStart[player] = nil
 	end)
 
-	-- Periodic state broadcast (cheap; keeps late/altered clients in sync).
+	-- Periodic state broadcast: a sync safety-net for late/altered clients. Its only
+	-- time-sensitive field is the match clock (whole seconds), and every real event
+	-- (goal, possession, restart) already forces its own broadcast — so 1Hz is plenty
+	-- and halves this per-client traffic vs the old 2.5Hz (a mobile bandwidth win).
 	task.spawn(function()
 		while true do
-			task.wait(0.4)
+			task.wait(1.0)
 			broadcastNow()
 		end
 	end)

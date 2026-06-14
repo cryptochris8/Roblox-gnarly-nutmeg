@@ -246,13 +246,23 @@ local function botPass(model: Model): boolean
 	return false
 end
 
+-- One shared footballer snapshot per AI tick. The list is identical for every bot
+-- within a tick, so the Heartbeat builds it ONCE and all decisions reuse it instead
+-- of each bot re-scanning CollectionService 4x (one site was O(n^2)). It holds live
+-- part references, so positions read off it are always current. Falls back to a
+-- fresh scan if ever called outside a tick.
+local footballerCache: typeof(BallService.listFootballers())? = nil
+local function footballers(): typeof(BallService.listFootballers())
+	return footballerCache or BallService.listFootballers()
+end
+
 -- Closest outfield BOT on a team to the ball. Humans are deliberately ignored:
 -- a bot must never defer the chase to a human who may be standing AFK (this
 -- exact bug let the other team score on every kickoff while a human idled).
 local function closestOutfieldToBall(team: string, ballPos: Vector3): Model?
 	local best: Model? = nil
 	local bd = math.huge
-	for _, f in ipairs(BallService.listFootballers()) do
+	for _, f in ipairs(footballers()) do
 		if f.team == team and f.isBot and f.role ~= GameConfig.GoalkeeperRole then
 			local d = hdist(f.root.Position, ballPos)
 			if d < bd then
@@ -359,7 +369,7 @@ local function decideBot(entry: BotEntry)
 			end
 		end
 		local pressured = false
-		for _, f in ipairs(BallService.listFootballers()) do
+		for _, f in ipairs(footballers()) do
 			if f.team ~= team and hdist(f.root.Position, myPos) < 7 then
 				pressured = true
 				break
@@ -382,11 +392,11 @@ local function decideBot(entry: BotEntry)
 		local carrySince = (model:GetAttribute("CarrySince") :: number?) or 0
 		local carryTime = os.clock() - carrySince
 		if carryTime > 0.6 then
-			for _, f in ipairs(BallService.listFootballers()) do
+			for _, f in ipairs(footballers()) do
 				if f.team == team and f.model ~= model and f.role ~= GameConfig.GoalkeeperRole
 					and hdist(f.root.Position, targetGoal) < dGoal - 15 then
 					local open = true
-					for _, o in ipairs(BallService.listFootballers()) do
+					for _, o in ipairs(footballers()) do
 						if o.team ~= team and hdist(o.root.Position, f.root.Position) < 8 then
 							open = false
 							break
@@ -539,6 +549,8 @@ function AIService.init()
 		if not (runOutfield or runKeeper) then
 			return
 		end
+		-- build the per-tick footballer snapshot once; every bot below reuses it
+		footballerCache = BallService.listFootballers()
 		for _, entry in ipairs(bots) do
 			if entry.model.Parent then
 				local isKeeper = entry.role == GameConfig.GoalkeeperRole
@@ -550,6 +562,8 @@ function AIService.init()
 				end
 			end
 		end
+		-- release the snapshot so any out-of-tick caller scans fresh
+		footballerCache = nil
 	end)
 end
 
