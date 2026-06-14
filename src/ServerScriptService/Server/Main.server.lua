@@ -122,6 +122,12 @@ Players.PlayerRemoving:Connect(function(plr)
 	lastCue[plr] = nil
 end)
 
+-- Getting gassed used to be a silent slow-down; now a one-shot, throttled nudge
+-- explains it. Stays a brief pill — no persistent stamina nagging on screen.
+PlayerService.onSprintEmpty = function(plr)
+	cue(plr, "😮‍💨 Out of breath — ease up to recover!")
+end
+
 Remotes.get(Remotes.RequestPass).OnServerEvent:Connect(function(player)
 	local char = player.Character
 	if not char then

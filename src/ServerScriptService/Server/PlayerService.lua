@@ -23,6 +23,10 @@ local FOOTBALLER_TAG = "Footballer"
 
 local PlayerService = {}
 
+-- Set by Main: PlayerService.onSprintEmpty(player) -- fired ONCE when a player
+-- holds Sprint with no stamina left, so getting gassed isn't a silent slowdown.
+PlayerService.onSprintEmpty = nil :: (((player: Player) -> ())?)
+
 local sprintOn: { [Player]: boolean } = {}
 local frozen: { [Player]: boolean } = {}
 local stunnedUntil: { [Player]: number } = {}
@@ -31,6 +35,9 @@ local lastAction: { [Player]: { [string]: number } } = {}
 local lastStaminaSend: { [Player]: number } = {}
 local burstUntil: { [Player]: number } = {}
 local burstMult: { [Player]: number } = {}
+-- one-shot latch so the "out of breath" nudge fires once per gassed spell, not
+-- every frame; clears when stamina has recovered to half
+local sprintEmptyWarned: { [Player]: boolean } = {}
 
 local staminaEvent: RemoteEvent
 
@@ -201,6 +208,21 @@ local function step(dt: number)
 					hum.WalkSpeed *= burstMult[player] or 1
 				end
 				stamina[player] = st
+
+				-- Gassed: holding Sprint with the tank near-empty gives no boost.
+				-- Nudge once so the sudden slow-down isn't a mystery, then wait
+				-- until they've recovered to half before it can fire again.
+				if sprintOn[player] and st <= STA.Max * 0.1 then
+					if not sprintEmptyWarned[player] then
+						sprintEmptyWarned[player] = true
+						local cb = PlayerService.onSprintEmpty
+						if cb then
+							cb(player)
+						end
+					end
+				elseif st >= STA.Max * 0.5 then
+					sprintEmptyWarned[player] = nil
+				end
 			end
 
 			-- throttle stamina pushes to ~5/sec
@@ -237,6 +259,7 @@ function PlayerService.init()
 		stamina[player] = nil
 		lastAction[player] = nil
 		lastStaminaSend[player] = nil
+		sprintEmptyWarned[player] = nil
 		burstUntil[player] = nil
 		burstMult[player] = nil
 	end)
