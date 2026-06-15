@@ -31,6 +31,7 @@ local LeaderboardService = require(script.Parent.LeaderboardService)
 local BadgeService = require(script.Parent.BadgeService)
 
 local HALFTIME_SHORT = 4 -- MVP: a brief stoppage between halves
+local PENALTY_RESULT_HOLD = 4.5 -- the broadcast camera lingers this long after each penalty strike
 local GOLDEN_SECONDS = 60 -- sudden-death period when the final is tied
 
 local MatchService = {}
@@ -435,6 +436,7 @@ local function takePenalty(shootTeam: string): boolean
 		charge = 0.6 + math.random() * 0.25
 	end
 	BallService.penaltyStrike(shootTeam, targetX, goalZ, charge, shooterUid, shooter)
+	local strikeAt = os.clock()
 
 	-- The bot keeper GUESSES a third and dives there at the strike — it can't track
 	-- a ball that crosses in a blink. Right guess = it gets across to save; wrong
@@ -472,6 +474,18 @@ local function takePenalty(shootTeam: string): boolean
 			scored = shootoutGoalTeam == shootoutAttacker
 			break
 		end
+	end
+	-- Crowd reaction lands HERE, on the close-up, not after the cut.
+	if scored then
+		AudioService.goal()
+	else
+		AudioService.ooh()
+	end
+	-- Hold the broadcast camera on the result before cutting to the wide shot — a
+	-- bot's kick resolves in a blink, so otherwise the close-up snaps away at once.
+	local heldFor = os.clock() - strikeAt
+	if heldFor < PENALTY_RESULT_HOLD then
+		task.wait(PENALTY_RESULT_HOLD - heldFor)
 	end
 	if penaltyEvent then
 		penaltyEvent:FireAllClients({ active = false })
@@ -534,15 +548,12 @@ local function runShootout(): string
 			taken[team] += 1
 			if converted then
 				shootoutTally[team] += 1
-				AudioService.goal()
-			else
-				AudioService.ooh()
 			end
 			if toastEvent then
 				toastEvent:FireAllClients(("%s — Shootout: Red %d : %d Blue"):format(
 					converted and "GOAL!" or "NO GOAL!", shootoutTally.Red, shootoutTally.Blue))
 			end
-			task.wait(1.8)
+			task.wait(1.0) -- brief beat between kicks (the result hold is in takePenalty now)
 			winner = decided()
 			if winner then
 				break
