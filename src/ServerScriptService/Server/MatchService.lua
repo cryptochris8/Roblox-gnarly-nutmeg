@@ -365,12 +365,20 @@ local function takePenalty(shootTeam: string): boolean
 			))
 		end)
 	end
-	-- One shared goal means the SHOOTING team's own keeper is sitting in the goal
-	-- they're aiming at — get it out of the way so it can't block its own team.
+	-- Clear EVERYONE except the taker and the keeper to the halfway line (where
+	-- players wait in a real shootout), spread along X and well behind the camera.
+	-- Otherwise, with one shared goal, previous takers and the frozen human pile up
+	-- on the spot — blocking the shot AND the view, and the shooting team's own
+	-- keeper (whose home is in this goal) would save its own team.
+	local clearedZ = FIELD.CenterZ - goalDir * 4
+	local waiting = 0
 	for _, f in ipairs(BallService.listFootballers()) do
-		if f.team == shootTeam and f.role == GameConfig.GoalkeeperRole then
+		if f.model ~= shooter and f.model ~= keeper then
+			waiting += 1
+			local off = (10 + math.floor((waiting - 1) / 2) * 6) * ((waiting % 2 == 0) and 1 or -1)
+			local wx = math.clamp(FIELD.CenterX + off, FIELD.MinX + 3, FIELD.MaxX - 3)
 			pcall(function()
-				(f.model :: Model):PivotTo(CFrame.new(FIELD.CenterX - 22, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ - goalDir * 10))
+				(f.model :: Model):PivotTo(CFrame.new(wx, FIELD.GroundY + GameConfig.Player.SpawnHeight, clearedZ))
 			end)
 		end
 	end
