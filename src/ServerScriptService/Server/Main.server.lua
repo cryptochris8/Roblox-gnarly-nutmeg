@@ -128,6 +128,21 @@ PlayerService.onSprintEmpty = function(plr)
 	cue(plr, "😮‍💨 Out of breath — ease up to recover!")
 end
 
+-- A ball won in the air: the crowd leans in on an attacking header, and the human
+-- who rose for it gets a quick call.
+BallService.onHeader = function(byModel, attacking)
+	if attacking then
+		AudioService.ooh()
+	end
+	local uid = (byModel:GetAttribute("UserId") :: number?) or 0
+	if uid ~= 0 then
+		local plr = Players:GetPlayerByUserId(uid)
+		if plr then
+			cue(plr, attacking and "🎯 HEADER on goal!" or "🧹 Headed clear!")
+		end
+	end
+end
+
 Remotes.get(Remotes.RequestPass).OnServerEvent:Connect(function(player)
 	local char = player.Character
 	if not char then

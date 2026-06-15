@@ -39,6 +39,7 @@ local DRIB = GameConfig.Dribble
 local NUTMEG = GameConfig.Nutmeg
 local VFX = GameConfig.Vfx
 local RESTART = GameConfig.Restart
+local HEADER = GameConfig.Header
 
 local TAG = "Footballer"
 
@@ -62,6 +63,8 @@ BallService.onNutmeg = nil :: (((byModel: Model, victimModel: Model) -> ())?)
 BallService.onRestart = nil :: (((kind: string, team: string) -> ())?)
 -- Set by Main: a human's pass reached its intended receiver (quest/XP credit)
 BallService.onPassComplete = nil :: (((kickerModel: Model, receiverModel: Model) -> ())?)
+-- Set by Main: BallService.onHeader(byModel, attacking) -- a ball was headed
+BallService.onHeader = nil :: (((byModel: Model, attacking: boolean) -> ())?)
 
 local ball: Part? = nil
 local shotTrail: Trail? = nil
@@ -940,6 +943,61 @@ local function carry()
 	end
 end
 
+-- A loose ball above head height gets HEADED by the nearest OUTFIELDER who has
+-- risen to it (a jump lifts their head into range; standing reaches a head-high
+-- ball). The winner nods it toward their attacking goal — in the box it drives
+-- down at the net, deep it's a high clearance away. Keepers still CATCH aerial
+-- balls (tryPickup). Runs before tryPickup, so airborne = header, low = trap.
+local function tryHeader()
+	if not ball or carrier or not enabled or restartActive or shootoutMode then
+		return
+	end
+	local bp = ball.Position
+	if bp.Y < FIELD.GroundY + HEADER.MinBallHeight then
+		return
+	end
+	local graceActive = os.clock() < ignorePickupUntil
+	local best: Footballer? = nil
+	local bestD = HEADER.Reach
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.role ~= "goalkeeper"
+			and not (graceActive and f.model == lastKicker)
+			and not isStunnedModel(f.model) then
+			local head = f.root.Position + Vector3.new(0, HEADER.HeadOffset, 0)
+			local d = (head - bp).Magnitude
+			if d <= bestD then
+				bestD = d
+				best = f
+			end
+		end
+	end
+	if not best then
+		return
+	end
+	local team = best.team
+	local goal = TeamService.targetGoalCenter(team)
+	local flat = Vector3.new(goal.X - bp.X, 0, goal.Z - bp.Z)
+	local dist = flat.Magnitude
+	local dir = dist > 0.1 and flat.Unit or Vector3.new(0, 0, (goal.Z >= bp.Z) and 1 or -1)
+	local attacking = dist < HEADER.AttackDist
+	local arc = attacking and HEADER.AttackArc or HEADER.ClearArc
+	shotCurve = nil
+	setPossession(nil)
+	ball.AssemblyLinearVelocity = dir * HEADER.Power + Vector3.yAxis * (HEADER.Power * arc)
+	lastKicker = best.model
+	lastShotAt = os.clock()
+	lastTouchTeam = team
+	lastCarrierTeam = team
+	lastCarrierUserId = best.userId
+	expectedReceiver = nil
+	ignorePickupUntil = os.clock() + HEADER.GraceSeconds
+	AudioService.kick(0.5)
+	local cb = BallService.onHeader
+	if cb then
+		task.spawn(cb, best.model, attacking)
+	end
+end
+
 local function tryPickup()
 	if not ball or carrier or not enabled or restartActive then
 		return
@@ -1199,6 +1257,7 @@ function BallService.init(world: WorldService.World)
 					ball.AssemblyLinearVelocity += curve.accel * dt
 				end
 			end
+			tryHeader()
 			tryPickup()
 			applyLooseDrag(dt)
 		end

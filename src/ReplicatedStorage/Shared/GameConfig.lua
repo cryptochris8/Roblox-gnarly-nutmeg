@@ -103,6 +103,21 @@ GameConfig.Kick = {
 	StrikeShapePush = 7,     -- studs of placement drag from cutting across the ball
 }
 
+-- ---- Headers (aerial play — crosses, corners, long balls) -------------------
+-- A loose ball above head height can be HEADED by a footballer who rises to it.
+-- The winner nods it toward their attacking goal: an attacker in the box drives
+-- it down at the net; a defender clears it high upfield (same direction, more arc).
+GameConfig.Header = {
+	MinBallHeight = 3.2,     -- ball must be at least this far above ground to be a header
+	Reach = 4.0,             -- a footballer's head within this of the ball wins the header
+	HeadOffset = 1.6,        -- studs above the root that count as the "head"
+	Power = 78,              -- nod speed (well below a struck shot)
+	AttackArc = 0.02,        -- near the goal: drive it flat/down into the net
+	ClearArc = 0.42,         -- far from the goal: loft the clearance away
+	AttackDist = 38,         -- within this of the target goal it's an attacking header
+	GraceSeconds = 0.4,      -- the crosser can't head their own delivery for this long
+}
+
 -- ---- Dead-ball restarts (throw-ins / corners / goal kicks) ------------------
 GameConfig.Restart = {
 	FreezeSeconds = 1.5,     -- whistle pause with the ball held on the spot
