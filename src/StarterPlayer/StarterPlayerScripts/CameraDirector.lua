@@ -61,14 +61,55 @@ function CameraDirector.countdown(n)
 end
 
 -- Safety: if anything interrupts the countdown, hand the camera back.
--- The goal replay is exempt — MatchState broadcasts every second (and one
--- fires the instant a goal is scored), and it must not eat the replay; the
--- replay hands the camera back itself after ~3.4s.
+-- The goal replay AND a live penalty are exempt — MatchState broadcasts every
+-- second, and it must not yank the camera off the replay/penalty; each hands the
+-- camera back itself when it's done.
 function CameraDirector.reset()
-	if mode == "goal" then
+	if mode == "goal" or mode == "penalty" then
 		return
 	end
 	restore()
+end
+
+-- A penalty is being taken: a broadcast camera planted behind the taker looking
+-- down the spot toward the goal, so EVERY kick (both teams, near and far goal) is
+-- framed up close. Holds until penaltyEnd(). `spot` and `goalCenter` are world
+-- points sent by the server with each kick.
+function CameraDirector.penalty(spot, goalCenter)
+	local ok = pcall(function()
+		local cam = Workspace.CurrentCamera
+		if not (cam and typeof(spot) == "Vector3" and typeof(goalCenter) == "Vector3") then
+			return
+		end
+		flying = true
+		mode = "penalty"
+		cam.CameraType = Enum.CameraType.Scriptable
+		local behind = spot - goalCenter
+		behind = Vector3.new(behind.X, 0, behind.Z)
+		behind = behind.Magnitude > 0.1 and behind.Unit or Vector3.new(0, 0, 1)
+		local camPos = spot + behind * 15 + Vector3.new(0, 8, 0)
+		local focus = spot:Lerp(goalCenter, 0.5) + Vector3.new(0, 1.5, 0)
+		cam.CFrame = CFrame.lookAt(camPos, focus)
+		if activeTween then
+			activeTween:Cancel()
+		end
+		-- a slow push-in toward goal for that big-moment broadcast feel
+		activeTween = TweenService:Create(
+			cam,
+			TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+			{ CFrame = CFrame.lookAt(camPos - behind * 3 + Vector3.new(0, -1, 0), focus) }
+		)
+		;(activeTween :: Tween):Play()
+	end)
+	if not ok then
+		restore()
+	end
+end
+
+function CameraDirector.penaltyEnd()
+	if mode == "penalty" then
+		restore()
+	end
 end
 
 -- A goal just went in: a slow broadcast dolly past the net while the

@@ -242,6 +242,11 @@ Remotes.get(Remotes.SelectTeam).OnServerEvent:Connect(function(player, teamName)
 	end
 end)
 
+-- A human's pick-a-corner penalty (validated/clamped in MatchService).
+Remotes.get(Remotes.RequestPenaltyKick).OnServerEvent:Connect(function(player, corner, power)
+	MatchService.submitPenaltyKick(player, corner, power)
+end)
+
 Remotes.get(Remotes.StartTournament).OnServerEvent:Connect(function(player, nationName)
 	if type(nationName) == "string" then
 		TournamentService.start(player, nationName)

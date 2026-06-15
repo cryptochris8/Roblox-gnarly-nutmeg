@@ -66,6 +66,9 @@ local countdownEvent: RemoteEvent
 local goalEvent: RemoteEvent
 local toastEvent: RemoteEvent
 local summaryEvent: RemoteEvent
+local penaltyEvent: RemoteEvent
+-- a human's pick-a-corner penalty input, keyed by UserId, consumed by takePenalty
+local pendingKick: { [number]: { corner: number, power: number } } = {}
 -- per-human snapshot taken at kickoff so the full-time card can show THIS match's
 -- gains (XP, goals, nutmegs) by diffing against lifetime totals
 local matchStart: { [Player]: { xp: number, goals: number, nutmegs: number } } = {}
@@ -321,13 +324,17 @@ local function takePenalty(shootTeam: string): boolean
 	local oppName = TeamService.info(shootTeam).opponent
 	local oppInfo = TeamService.info(oppName)
 	local FIELD = GameConfig.Field
-	local spotZ = oppInfo.ownGoalZ + oppInfo.attackDir * (FIELD.Length * 0.105)
+	local GOAL = GameConfig.Goal
+	local goalZ = oppInfo.ownGoalZ
+	local spotZ = goalZ + oppInfo.attackDir * (FIELD.Length * 0.105)
 	local spot = Vector3.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Ball.Diameter / 2, spotZ)
+	local goalCenter = Vector3.new(FIELD.CenterX, FIELD.GroundY + GOAL.Height * 0.4, goalZ)
 
 	local shooter, shooterPlayer = pickShooter(shootTeam)
 	if not shooter then
 		return false
 	end
+	local shooterUid = ((shooter :: Model):GetAttribute("UserId") :: number?) or 0
 	local keeper: Model? = nil
 	for _, f in ipairs(BallService.listFootballers()) do
 		if f.team == oppName and f.role == GameConfig.GoalkeeperRole then
@@ -336,10 +343,11 @@ local function takePenalty(shootTeam: string): boolean
 		end
 	end
 
-	-- stage the kick: shooter behind the spot facing goal, keeper on his line
+	-- plant the ball dead-still on the spot; stage the taker right behind it
+	BallService.placePenaltyBall(shootTeam, spot)
 	pcall(function()
 		(shooter :: Model):PivotTo(CFrame.lookAt(
-			Vector3.new(spot.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ + oppInfo.attackDir * 8),
+			Vector3.new(spot.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ + oppInfo.attackDir * 2.5),
 			Vector3.new(spot.X, FIELD.GroundY + 2, oppInfo.ownGoalZ)
 		))
 	end)
@@ -366,16 +374,45 @@ local function takePenalty(shootTeam: string): boolean
 	if toastEvent then
 		toastEvent:FireAllClients(("Penalty: %s steps up…"):format(who))
 	end
-	BallService.penaltyRestart(shootTeam, spot)
-	if shooterPlayer then
-		PlayerService.setFrozen(shooterPlayer, false) -- the human takes their own kick
+	pendingKick[shooterUid] = nil
+	if penaltyEvent then
+		penaltyEvent:FireAllClients({ active = true, shooterUserId = shooterUid, spot = spot, goalCenter = goalCenter })
 	end
 
-	local deadline = os.clock() + 10
-	local kicked = false
+	-- decide the strike: the human picks a corner + power via the aim UI (or times
+	-- out tame); a bot guesses a corner, mostly away from the keeper.
+	local cornerOffset = math.min(GOAL.Width / 2 - GOAL.PostThickness - 1, 7)
+	local targetX = FIELD.CenterX
+	local charge = 0.65
+	if shooterPlayer then
+		local waitUntil = os.clock() + 8
+		while os.clock() < waitUntil and not pendingKick[shooterUid] and shooterPlayer.Parent do
+			task.wait(0.1)
+		end
+		local pk = pendingKick[shooterUid]
+		pendingKick[shooterUid] = nil
+		if pk then
+			targetX = FIELD.CenterX + pk.corner * cornerOffset
+			charge = pk.power
+		else
+			targetX = FIELD.CenterX + (math.random() - 0.5) * cornerOffset
+			charge = 0.55
+		end
+	else
+		task.wait(1.2) -- a beat of composure so the camera settles
+		local side = (math.random() < 0.5) and -1 or 1
+		if math.random() < 0.22 then
+			side = 0 -- sometimes straight down the middle
+		end
+		targetX = FIELD.CenterX + side * cornerOffset * (0.82 + math.random() * 0.18)
+		charge = 0.6 + math.random() * 0.25
+	end
+	BallService.penaltyStrike(shootTeam, targetX, charge, shooterUid, shooter)
+
+	local deadline = os.clock() + 6
 	local scored = false
 	while os.clock() < deadline do
-		task.wait(0.1)
+		task.wait(0.08)
 		-- keeper mini-AI (the main bot loop is off): shadow the ball on his line
 		if keeper and keeperPlayer == nil then
 			local hum = (keeper :: Model):FindFirstChildOfClass("Humanoid")
@@ -384,19 +421,6 @@ local function takePenalty(shootTeam: string): boolean
 				local bx = BallService.getBallPosition().X
 				local gx = math.clamp(bx, FIELD.CenterX - GameConfig.Goal.Width / 2 + 1, FIELD.CenterX + GameConfig.Goal.Width / 2 - 1)
 				hum:MoveTo(Vector3.new(gx, root.Position.Y, oppInfo.ownGoalZ + oppInfo.attackDir * 1.5))
-			end
-		end
-		-- bot shooter: walk on, collect, pick a corner and strike
-		if not shooterPlayer then
-			local hum = (shooter :: Model):FindFirstChildOfClass("Humanoid")
-			if hum then
-				if BallService.getCarrier() ~= shooter then
-					hum:MoveTo(spot)
-				elseif not kicked then
-					kicked = true
-					task.wait(0.3) -- a beat of composure
-					BallService.shootFrom(shooter :: Model, 0.6 + math.random() * 0.18, 4)
-				end
 			end
 		end
 		if shootoutGoalTeam == shootTeam then
@@ -414,6 +438,9 @@ local function takePenalty(shootTeam: string): boolean
 			scored = shootoutGoalTeam == shootTeam
 			break
 		end
+	end
+	if penaltyEvent then
+		penaltyEvent:FireAllClients({ active = false })
 	end
 	if shooterPlayer then
 		PlayerService.setFrozen(shooterPlayer, true)
@@ -793,12 +820,25 @@ function MatchService.getScore(): { Red: number, Blue: number }
 	return { Red = scores.Red, Blue = scores.Blue }
 end
 
+-- A human's pick-a-corner penalty: corner -1/0/1 (left/centre/right), power 0..1.
+-- Stored for takePenalty to consume; only meaningful while it's their kick.
+function MatchService.submitPenaltyKick(player: Player, corner: number, power: number)
+	if type(corner) ~= "number" or type(power) ~= "number" then
+		return
+	end
+	pendingKick[player.UserId] = {
+		corner = math.clamp(math.floor(corner + 0.5), -1, 1),
+		power = math.clamp(power, 0, 1),
+	}
+end
+
 function MatchService.init(_world: WorldService.World)
 	matchStateEvent = Remotes.get(Remotes.MatchState)
 	countdownEvent = Remotes.get(Remotes.Countdown)
 	goalEvent = Remotes.get(Remotes.GoalScored)
 	toastEvent = Remotes.get(Remotes.Toast)
 	summaryEvent = Remotes.get(Remotes.MatchSummary)
+	penaltyEvent = Remotes.get(Remotes.Penalty)
 
 	BallService.onGoal = onGoal
 
@@ -829,6 +869,7 @@ function MatchService.init(_world: WorldService.World)
 		preferred[player] = nil
 		lastOppTier[player] = nil
 		matchStart[player] = nil
+		pendingKick[player.UserId] = nil
 	end)
 
 	-- Periodic state broadcast: a sync safety-net for late/altered clients. Its only

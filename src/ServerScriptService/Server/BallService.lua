@@ -787,6 +787,57 @@ function BallService.penaltyRestart(team: string, spot: Vector3)
 	beginRestart("Penalty", team, spot)
 end
 
+-- PENALTY (FIFA): the ball is planted DEAD-STILL on the spot and must be struck
+-- once — no dribble, no second touch. placePenaltyBall anchors it and suspends
+-- auto-pickup/drag (restartActive) until penaltyStrike launches it.
+function BallService.placePenaltyBall(team: string, spot: Vector3)
+	enabled = true
+	setPossession(nil)   -- loose + server-owned; clears any carrier
+	restartActive = true -- freeze: Heartbeat skips pickup/drag while we hold it
+	restartToken += 1    -- cancel any pending beginRestart auto-release
+	exclusiveTeam = team
+	exclusiveUntil = 0
+	lastKicker = nil
+	expectedReceiver = nil
+	if ball then
+		ball.AssemblyLinearVelocity = Vector3.zero
+		ball.AssemblyAngularVelocity = Vector3.zero
+		ball.CFrame = CFrame.new(spot)
+		ball.Anchored = true -- stays put until the strike
+	end
+end
+
+-- Strike the planted ball toward `targetX` on the goal line for `team`, with
+-- `charge` (0..1) power. One touch only; the goal is credited to the taker.
+function BallService.penaltyStrike(team: string, targetX: number, charge: number, shooterUid: number?, shooterModel: Model?): boolean
+	if not ball then
+		return false
+	end
+	charge = math.clamp(charge, 0, 1)
+	local goal = TeamService.targetGoalCenter(team)
+	local from = ball.Position
+	setPossession(nil)    -- un-anchors + server-owns the now-live loose ball
+	restartActive = false -- live: the keeper may claim it (a save), drag applies
+	local dir = Vector3.new(targetX - from.X, 0, goal.Z - from.Z)
+	dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, (goal.Z >= from.Z) and 1 or -1)
+	local power = KICK.ShotSpeedMin + (KICK.ShotSpeedMax - KICK.ShotSpeedMin) * charge
+	local v = dir * power + Vector3.yAxis * (power * KICK.ShotArc)
+	ball.Anchored = false
+	ball.AssemblyLinearVelocity = v
+	lastTouchTeam = team
+	lastCarrierTeam = team
+	lastCarrierUserId = shooterUid or 0
+	lastKicker = shooterModel
+	lastShotAt = os.clock()
+	expectedReceiver = nil
+	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
+	AudioService.kick(charge)
+	if shooterModel then
+		BotAnimationService.kick(shooterModel)
+	end
+	return true
+end
+
 -- FIFA rules: over the touchline = throw-in to the other team; over the goal
 -- line outside the goal = corner (if the defenders touched it last) or goal kick.
 local function checkOutOfBounds()

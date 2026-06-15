@@ -22,10 +22,12 @@ local CarryController = require(scripts:WaitForChild("CarryController"))
 local GoalFx = require(scripts:WaitForChild("GoalFx"))
 local PhotoMode = require(scripts:WaitForChild("PhotoMode"))
 local GoalMarker = require(scripts:WaitForChild("GoalMarker"))
+local PenaltyUI = require(scripts:WaitForChild("PenaltyUI"))
 
 HudUI.mount(playerGui)
 MenuUI.mount(playerGui)
 QuestUI.mount(playerGui)
+PenaltyUI.mount(playerGui)
 InputController.start(HudUI)
 PhotoMode.init()
 GoalMarker.init()
@@ -137,6 +139,22 @@ Remotes.get(Remotes.XpGain).OnClientEvent:Connect(function(amount, label)
 end)
 Remotes.get(Remotes.MatchSummary).OnClientEvent:Connect(function(data)
 	HudUI.matchSummary(data)
+end)
+-- Shootout: frame every kick with the broadcast penalty camera; if it's MY kick,
+-- raise the pick-a-corner aim UI. Clears when the server says the kick is done.
+Remotes.get(Remotes.Penalty).OnClientEvent:Connect(function(info)
+	if type(info) ~= "table" then
+		return
+	end
+	if info.active then
+		CameraDirector.penalty(info.spot, info.goalCenter)
+		if info.shooterUserId == player.UserId then
+			PenaltyUI.show()
+		end
+	else
+		CameraDirector.penaltyEnd()
+		PenaltyUI.hide()
+	end
 end)
 
 -- Tell the player their job in plain words whenever it changes.
