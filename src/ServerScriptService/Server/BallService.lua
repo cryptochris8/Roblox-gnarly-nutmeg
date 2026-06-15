@@ -807,19 +807,19 @@ function BallService.placePenaltyBall(team: string, spot: Vector3)
 	end
 end
 
--- Strike the planted ball toward `targetX` on the goal line for `team`, with
--- `charge` (0..1) power. One touch only; the goal is credited to the taker.
-function BallService.penaltyStrike(team: string, targetX: number, charge: number, shooterUid: number?, shooterModel: Model?): boolean
+-- Strike the planted ball toward (`targetX`, `goalZ`) — the shootout goal, which
+-- both teams share, so it's passed in rather than read from the taker's normal
+-- attacking goal. `charge` (0..1) is power. One touch; credited to the taker.
+function BallService.penaltyStrike(team: string, targetX: number, goalZ: number, charge: number, shooterUid: number?, shooterModel: Model?): boolean
 	if not ball then
 		return false
 	end
 	charge = math.clamp(charge, 0, 1)
-	local goal = TeamService.targetGoalCenter(team)
 	local from = ball.Position
 	setPossession(nil)    -- un-anchors + server-owns the now-live loose ball
 	restartActive = false -- live: the keeper may claim it (a save), drag applies
-	local dir = Vector3.new(targetX - from.X, 0, goal.Z - from.Z)
-	dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, (goal.Z >= from.Z) and 1 or -1)
+	local dir = Vector3.new(targetX - from.X, 0, goalZ - from.Z)
+	dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, (goalZ >= from.Z) and 1 or -1)
 	local power = KICK.ShotSpeedMin + (KICK.ShotSpeedMax - KICK.ShotSpeedMin) * charge
 	local v = dir * power + Vector3.yAxis * (power * KICK.ShotArc)
 	ball.Anchored = false

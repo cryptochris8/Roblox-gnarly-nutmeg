@@ -324,11 +324,15 @@ end
 -- One penalty kick for `shootTeam`. Returns true if it went in.
 local function takePenalty(shootTeam: string): boolean
 	local oppName = TeamService.info(shootTeam).opponent
-	local oppInfo = TeamService.info(oppName)
 	local FIELD = GameConfig.Field
 	local GOAL = GameConfig.Goal
-	local goalZ = oppInfo.ownGoalZ
-	local spotZ = goalZ + oppInfo.attackDir * (FIELD.Length * 0.105)
+	-- ONE shared goal for the whole shootout (real-football style): BOTH teams shoot
+	-- at the SAME end, so the broadcast camera stays put instead of jumping ends. A
+	-- ball that enters it counts for whoever took the kick (see the `scored` check).
+	local shootoutAttacker = TeamService.Names[1]
+	local goalZ = TeamService.targetGoalCenter(shootoutAttacker).Z
+	local goalDir = (goalZ >= FIELD.CenterZ) and 1 or -1 -- +1 if the goal sits at +Z
+	local spotZ = goalZ - goalDir * (FIELD.Length * 0.105) -- the spot, on the field side
 	local spot = Vector3.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Ball.Diameter / 2, spotZ)
 	local goalCenter = Vector3.new(FIELD.CenterX, FIELD.GroundY + GOAL.Height * 0.4, goalZ)
 
@@ -349,17 +353,26 @@ local function takePenalty(shootTeam: string): boolean
 	BallService.placePenaltyBall(shootTeam, spot)
 	pcall(function()
 		(shooter :: Model):PivotTo(CFrame.lookAt(
-			Vector3.new(spot.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ + oppInfo.attackDir * 2.5),
-			Vector3.new(spot.X, FIELD.GroundY + 2, oppInfo.ownGoalZ)
+			Vector3.new(spot.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ - goalDir * 2.5),
+			Vector3.new(spot.X, FIELD.GroundY + 2, goalZ)
 		))
 	end)
 	if keeper then
 		pcall(function()
 			(keeper :: Model):PivotTo(CFrame.lookAt(
-				Vector3.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Player.SpawnHeight, oppInfo.ownGoalZ + oppInfo.attackDir * 1.5),
+				Vector3.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Player.SpawnHeight, goalZ - goalDir * 1.5),
 				spot
 			))
 		end)
+	end
+	-- One shared goal means the SHOOTING team's own keeper is sitting in the goal
+	-- they're aiming at — get it out of the way so it can't block its own team.
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team == shootTeam and f.role == GameConfig.GoalkeeperRole then
+			pcall(function()
+				(f.model :: Model):PivotTo(CFrame.new(FIELD.CenterX - 22, FIELD.GroundY + GameConfig.Player.SpawnHeight, spotZ - goalDir * 10))
+			end)
+		end
 	end
 	-- a human keeper defends their own net (unfrozen for the kick)
 	local keeperPlayer: Player? = nil
@@ -394,7 +407,11 @@ local function takePenalty(shootTeam: string): boolean
 		local pk = pendingKick[shooterUid]
 		pendingKick[shooterUid] = nil
 		if pk then
-			targetX = FIELD.CenterX + pk.corner * cornerOffset
+			-- pk.corner is SCREEN-relative (the left/right the taker sees). The
+			-- broadcast camera faces the goal, and its screen-right is +X for the
+			-- team shooting at +Z but -X for the team shooting at -Z, so map the
+			-- pick to world X by the attack direction or it mirrors for one side.
+			targetX = FIELD.CenterX - pk.corner * cornerOffset * goalDir
 			charge = pk.power
 		else
 			targetX = FIELD.CenterX + (math.random() - 0.5) * cornerOffset
@@ -409,7 +426,7 @@ local function takePenalty(shootTeam: string): boolean
 		targetX = FIELD.CenterX + side * cornerOffset * (0.82 + math.random() * 0.18)
 		charge = 0.6 + math.random() * 0.25
 	end
-	BallService.penaltyStrike(shootTeam, targetX, charge, shooterUid, shooter)
+	BallService.penaltyStrike(shootTeam, targetX, goalZ, charge, shooterUid, shooter)
 
 	-- The bot keeper GUESSES a third and dives there at the strike — it can't track
 	-- a ball that crosses in a blink. Right guess = it gets across to save; wrong
@@ -422,7 +439,7 @@ local function takePenalty(shootTeam: string): boolean
 			or (FIELD.CenterX + guess * cornerOffset)
 		pcall(function()
 			(keeper :: Model):PivotTo(CFrame.lookAt(
-				Vector3.new(diveX, FIELD.GroundY + GameConfig.Player.SpawnHeight, goalZ + oppInfo.attackDir * 1.5),
+				Vector3.new(diveX, FIELD.GroundY + GameConfig.Player.SpawnHeight, goalZ - goalDir * 1.5),
 				Vector3.new(FIELD.CenterX, FIELD.GroundY + 1, spotZ)
 			))
 		end)
@@ -432,7 +449,7 @@ local function takePenalty(shootTeam: string): boolean
 	local scored = false
 	while os.clock() < deadline do
 		task.wait(0.08)
-		if shootoutGoalTeam == shootTeam then
+		if shootoutGoalTeam == shootoutAttacker then
 			scored = true
 			AudioService.commentary("shootoutScore", true)
 			break
@@ -444,7 +461,7 @@ local function takePenalty(shootTeam: string): boolean
 		local bp = BallService.getBallPosition()
 		if math.abs(bp.Z - FIELD.CenterZ) > FIELD.Length / 2 + 1.5 then
 			task.wait(0.35) -- give goal detection one last beat
-			scored = shootoutGoalTeam == shootTeam
+			scored = shootoutGoalTeam == shootoutAttacker
 			break
 		end
 	end
