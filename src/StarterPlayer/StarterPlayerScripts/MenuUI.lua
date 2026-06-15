@@ -335,10 +335,13 @@ function MenuUI.mount(playerGui)
 	-- ❓ HOW TO PLAY: a one-screen card for first-timers (and our youngest players).
 	-- Auto-shows on the very first visit and reopens from this button. Like the
 	-- other menus it clears off-screen during live play, so it never clutters.
+	-- 4th button slot: mobile row x=10/60/110/160 (after 🏆/👕/📋), desktop column
+	-- y=266 (below 🏆122/👕170/📋218). MUST clear QuestUI's 📋 toggle, which lives
+	-- in a separate (higher DisplayOrder) ScreenGui — same coords would hide this.
 	local helpBtn = UiTheme.make("TextButton", {
-		Position = UDim2.fromOffset(touch and 110 or 18, touch and 82 or 218),
+		Position = UDim2.fromOffset(touch and 160 or 18, touch and 82 or 266),
 		Size = UDim2.fromOffset(touch and 44 or 184, 40),
-		BackgroundColor3 = Color3.fromRGB(90, 200, 140),
+		BackgroundColor3 = Color3.fromRGB(255, 150, 90),
 		Font = UiTheme.Header,
 		TextSize = touch and 20 or 15,
 		TextColor3 = C.Ink,

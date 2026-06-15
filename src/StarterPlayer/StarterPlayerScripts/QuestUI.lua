@@ -48,17 +48,26 @@ function QuestUI.mount(playerGui)
 	})
 	UiTheme.corner(12, toggle)
 
-	-- anchored to the vertical middle so it also fits short phone screens
-	panel = UiTheme.make("Frame", {
+	-- A ScrollingFrame so the full 446px of content (streak → quests → skills →
+	-- career) never clips on short phones: the visible height tracks the screen
+	-- (capped at the full height) and the canvas scrolls when it can't all fit.
+	panel = UiTheme.make("ScrollingFrame", {
 		Name = "QuestPanel",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 18, 0.52, 0),
-		Size = UDim2.fromOffset(320, 446),
+		Size = UDim2.new(0, 320, 0.88, 0),
+		CanvasSize = UDim2.fromOffset(0, 446),
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollBarThickness = 6,
+		ScrollBarImageColor3 = Color3.fromRGB(245, 196, 60),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.06,
 		Visible = false,
 		Parent = gui,
 	})
+	local panelCap = Instance.new("UISizeConstraint")
+	panelCap.MaxSize = Vector2.new(320, 446)
+	panelCap.Parent = panel
 	UiTheme.corner(16, panel)
 
 	streakLabel = UiTheme.make("TextLabel", {
