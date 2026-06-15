@@ -30,6 +30,24 @@ InputController.start(HudUI)
 PhotoMode.init()
 GoalMarker.init()
 
+-- Roblox's chat window defaults to the TOP-LEFT — exactly where our between-match
+-- buttons live (Team / 🏆 Trophy / 👕 Locker / 📋 Quests / ❓ Help), so an open chat
+-- covered them. Move the chat to the TOP-RIGHT instead. The config object is created
+-- automatically by TextChatService, so poll briefly for it on a fresh client.
+task.spawn(function()
+	local TextChatService = game:GetService("TextChatService")
+	local cfg = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+	local tries = 0
+	while not cfg and tries < 25 do
+		task.wait(0.2)
+		cfg = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+		tries += 1
+	end
+	if cfg then
+		cfg.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	end
+end)
+
 Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 	HudUI.updateMatch(snap)
 	-- keep the pitch clear during live play: menus close (and on mobile fully
