@@ -22,6 +22,7 @@ Remotes.StartTournament = "StartTournament"          -- nationName: begin a Nutm
 Remotes.RequestSkill = "RequestSkill"                -- skillId: perform an unlocked skill move
 Remotes.RequestEquip = "RequestEquip"                -- slot, id: equip an unlocked cosmetic
 Remotes.RequestPenaltyKick = "RequestPenaltyKick"    -- corner (-1/0/1), power (0..1): my pick-a-corner penalty
+Remotes.RequestShootout = "RequestShootout"          -- toggle server-wide Penalty Shootout mode
 
 -- server -> client
 Remotes.MatchState = "MatchState"               -- full snapshot (phase, scores, time, your team/role)
@@ -49,6 +50,7 @@ local ALL_EVENTS = {
 	Remotes.RequestSkill,
 	Remotes.RequestEquip,
 	Remotes.RequestPenaltyKick,
+	Remotes.RequestShootout,
 	Remotes.ProgressionSync,
 	Remotes.MatchState,
 	Remotes.Countdown,

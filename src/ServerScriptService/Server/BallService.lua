@@ -966,7 +966,11 @@ local function tryPickup()
 				-- keepers reach further and claim airborne shots up to the crossbar
 				-- (reach scales with the difficulty league — only for BOT keepers)
 				local reach = isKeeper and BALL.KeeperReach or BALL.PickupRadius
-				if isKeeper and f.isBot then
+				-- the difficulty reach-boost is suspended during a shootout: at full
+				-- strength it spans the whole goal mouth and saves every penalty. A
+				-- penalty keeper guesses a side instead (see MatchService.takePenalty),
+				-- so corner placement can beat it.
+				if isKeeper and f.isBot and not shootoutMode then
 					reach *= DifficultyService.get(f.team).keeperReachMult
 				end
 				if isReceiver then

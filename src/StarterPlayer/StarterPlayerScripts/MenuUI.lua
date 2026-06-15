@@ -417,7 +417,39 @@ function MenuUI.mount(playerGui)
 		howto.Visible = true
 	end
 
-	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto }
+	-- ⚡ PENALTY SHOOTOUT mode: skip full games and play shootouts back-to-back
+	-- (also the fastest way to practise penalties). Server-wide toggle; the button
+	-- reflects the live mode from the match snapshot. 5th slot: mobile x=210,
+	-- desktop y=314 (below ❓ at 266).
+	local shootoutBtn = UiTheme.make("TextButton", {
+		Position = UDim2.fromOffset(touch and 210 or 18, touch and 82 or 314),
+		Size = UDim2.fromOffset(touch and 44 or 184, 40),
+		BackgroundColor3 = C.PanelDark,
+		Font = UiTheme.Header,
+		TextSize = touch and 20 or 15,
+		TextColor3 = C.Panel,
+		Text = touch and "⚡" or "⚡ SHOOTOUT",
+		AutoButtonColor = true,
+		Parent = gui,
+	})
+	UiTheme.corner(12, shootoutBtn)
+	UiTheme.stroke(gold, 1, shootoutBtn)
+	local shootoutEvent = Remotes.get(Remotes.RequestShootout)
+	shootoutBtn.MouseButton1Click:Connect(function()
+		shootoutEvent:FireServer()
+	end)
+
+	-- reflect the live server mode (called by ClientController from the snapshot)
+	function MenuUI.setShootoutMode(on)
+		on = on and true or false
+		shootoutBtn.BackgroundColor3 = on and gold or C.PanelDark
+		shootoutBtn.TextColor3 = on and C.Ink or C.Panel
+		if not touch then
+			shootoutBtn.Text = on and "⚡ SHOOTOUT  ✓" or "⚡ SHOOTOUT"
+		end
+	end
+
+	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto, shootoutBtn = shootoutBtn }
 
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)
 	if not UserInputService.TouchEnabled then
@@ -466,6 +498,9 @@ function MenuUI.matchActive(active)
 		end
 		if refs.helpBtn then
 			refs.helpBtn.Visible = show
+		end
+		if refs.shootoutBtn then
+			refs.shootoutBtn.Visible = show
 		end
 	end
 end

@@ -59,6 +59,9 @@ Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 		local active = (p == "Countdown" or p == "Playing" or p == "GoalPause" or p == "Shootout")
 		MenuUI.matchActive(active)
 		QuestUI.matchActive(active)
+		if MenuUI.setShootoutMode then
+			MenuUI.setShootoutMode(snap.shootoutMode)
+		end
 		GoalMarker.refresh() -- team can flip between matches
 	end
 end)

@@ -247,6 +247,11 @@ Remotes.get(Remotes.RequestPenaltyKick).OnServerEvent:Connect(function(player, c
 	MatchService.submitPenaltyKick(player, corner, power)
 end)
 
+-- Toggle server-wide Penalty Shootout mode (every match becomes a shootout).
+Remotes.get(Remotes.RequestShootout).OnServerEvent:Connect(function(player)
+	MatchService.toggleShootoutMode(player)
+end)
+
 Remotes.get(Remotes.StartTournament).OnServerEvent:Connect(function(player, nationName)
 	if type(nationName) == "string" then
 		TournamentService.start(player, nationName)

@@ -59,6 +59,7 @@ local shootoutActive = false
 local shootoutGoalTeam: string? = nil
 local shootoutTally = { Red = 0, Blue = 0 }
 local shootoutWinner: string? = nil
+local shootoutModeOn = false -- server-wide: when true, every match is a best-of-5 shootout
 local preferred: { [Player]: string } = {}
 
 local matchStateEvent: RemoteEvent
@@ -91,6 +92,7 @@ local function snapshot()
 		result = (state == "Finished") and resultText or nil,
 		roundLabel = MatchService.roundLabel,
 		board = MatchService.board,
+		shootoutMode = shootoutModeOn,
 	}
 	return snap
 end
@@ -409,20 +411,27 @@ local function takePenalty(shootTeam: string): boolean
 	end
 	BallService.penaltyStrike(shootTeam, targetX, charge, shooterUid, shooter)
 
+	-- The bot keeper GUESSES a third and dives there at the strike — it can't track
+	-- a ball that crosses in a blink. Right guess = it gets across to save; wrong
+	-- guess = placement beats it (~2 in 3 score). A human keeper dives themselves.
+	if keeper and keeperPlayer == nil then
+		local shotZone = (targetX > FIELD.CenterX + 2.5) and 1 or ((targetX < FIELD.CenterX - 2.5) and -1 or 0)
+		local guess = ({ -1, 0, 1 })[math.random(1, 3)]
+		local diveX = (guess == shotZone)
+				and math.clamp(targetX, FIELD.CenterX - GameConfig.Goal.Width / 2 + 1, FIELD.CenterX + GameConfig.Goal.Width / 2 - 1)
+			or (FIELD.CenterX + guess * cornerOffset)
+		pcall(function()
+			(keeper :: Model):PivotTo(CFrame.lookAt(
+				Vector3.new(diveX, FIELD.GroundY + GameConfig.Player.SpawnHeight, goalZ + oppInfo.attackDir * 1.5),
+				Vector3.new(FIELD.CenterX, FIELD.GroundY + 1, spotZ)
+			))
+		end)
+	end
+
 	local deadline = os.clock() + 6
 	local scored = false
 	while os.clock() < deadline do
 		task.wait(0.08)
-		-- keeper mini-AI (the main bot loop is off): shadow the ball on his line
-		if keeper and keeperPlayer == nil then
-			local hum = (keeper :: Model):FindFirstChildOfClass("Humanoid")
-			local root = (keeper :: Model):FindFirstChild("HumanoidRootPart") :: BasePart?
-			if hum and root then
-				local bx = BallService.getBallPosition().X
-				local gx = math.clamp(bx, FIELD.CenterX - GameConfig.Goal.Width / 2 + 1, FIELD.CenterX + GameConfig.Goal.Width / 2 - 1)
-				hum:MoveTo(Vector3.new(gx, root.Position.Y, oppInfo.ownGoalZ + oppInfo.attackDir * 1.5))
-			end
-		end
 		if shootoutGoalTeam == shootTeam then
 			scored = true
 			AudioService.commentary("shootoutScore", true)
@@ -671,6 +680,11 @@ local function runMatchLoop()
 		broadcastNow()
 		task.wait(1.5)
 
+		-- PENALTY SHOOTOUT MODE: skip the match, go straight to a best-of-5 shootout
+		if shootoutModeOn then
+			runShootout()
+		end
+		if not shootoutModeOn then
 		for h = 1, GameConfig.Halves do
 			playHalf(h)
 			if abortRequested then
@@ -702,6 +716,7 @@ local function runMatchLoop()
 		if scores.Red == scores.Blue and not abortRequested then
 			runShootout()
 		end
+		end -- close 'if not shootoutModeOn'
 
 		-- Full time
 		AudioService.commentary("fullTime", true)
@@ -830,6 +845,22 @@ function MatchService.submitPenaltyKick(player: Player, corner: number, power: n
 		corner = math.clamp(math.floor(corner + 0.5), -1, 1),
 		power = math.clamp(power, 0, 1),
 	}
+end
+
+-- Server-wide PENALTY SHOOTOUT MODE: when on, every match is a best-of-5 shootout
+-- instead of a full game (great for a quick game and for testing). Any player can
+-- flip it from the menu; we abort the current match so the switch takes effect now.
+function MatchService.toggleShootoutMode(_player: Player)
+	shootoutModeOn = not shootoutModeOn
+	abortRequested = true -- end the current match/shootout; the loop applies the new mode next
+	timeRemaining = 0 -- ...and run the half clock out NOW so the switch is near-instant
+	if toastEvent then
+		toastEvent:FireAllClients(
+			shootoutModeOn and "⚡ PENALTY SHOOTOUT mode — straight to the spot!"
+				or "⚽ Back to FULL MATCHES"
+		)
+	end
+	broadcastNow() -- push the new mode to clients (updates the button)
 end
 
 function MatchService.init(_world: WorldService.World)
