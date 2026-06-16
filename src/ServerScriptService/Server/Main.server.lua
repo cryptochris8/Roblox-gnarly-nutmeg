@@ -265,6 +265,11 @@ Remotes.get(Remotes.RequestPenaltyKick).OnServerEvent:Connect(function(player, c
 	MatchService.submitPenaltyKick(player, corner, power)
 end)
 
+-- A human's pick-a-target corner delivery (validated/clamped in MatchService).
+Remotes.get(Remotes.RequestCornerKick).OnServerEvent:Connect(function(player, target, power)
+	MatchService.submitCornerKick(player, target, power)
+end)
+
 -- Toggle server-wide Penalty Shootout mode (every match becomes a shootout).
 Remotes.get(Remotes.RequestShootout).OnServerEvent:Connect(function(player)
 	MatchService.toggleShootoutMode(player)

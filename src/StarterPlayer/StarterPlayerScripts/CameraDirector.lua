@@ -61,11 +61,11 @@ function CameraDirector.countdown(n)
 end
 
 -- Safety: if anything interrupts the countdown, hand the camera back.
--- The goal replay AND a live penalty are exempt — MatchState broadcasts every
--- second, and it must not yank the camera off the replay/penalty; each hands the
--- camera back itself when it's done.
+-- The goal replay, a live penalty AND a corner are exempt — MatchState broadcasts
+-- every second, and it must not yank the camera off them; each hands the camera back
+-- itself when it's done.
 function CameraDirector.reset()
-	if mode == "goal" or mode == "penalty" then
+	if mode == "goal" or mode == "penalty" or mode == "corner" then
 		return
 	end
 	restore()
@@ -108,6 +108,45 @@ end
 
 function CameraDirector.penaltyEnd()
 	if mode == "penalty" then
+		restore()
+	end
+end
+
+-- It's my corner: swing behind and above the flag, looking diagonally across the
+-- box toward the goal so I can read my delivery zones. Holds until cornerEnd().
+-- `spot` is the corner flag, `goalCenter` the goal mouth — both sent by the server.
+function CameraDirector.corner(spot, goalCenter)
+	local ok = pcall(function()
+		local cam = Workspace.CurrentCamera
+		if not (cam and typeof(spot) == "Vector3" and typeof(goalCenter) == "Vector3") then
+			return
+		end
+		flying = true
+		mode = "corner"
+		cam.CameraType = Enum.CameraType.Scriptable
+		local toGoal = Vector3.new(goalCenter.X - spot.X, 0, goalCenter.Z - spot.Z)
+		toGoal = toGoal.Magnitude > 0.1 and toGoal.Unit or Vector3.new(0, 0, 1)
+		local camPos = spot - toGoal * 16 + Vector3.new(0, 15, 0)
+		local focus = spot:Lerp(goalCenter, 0.55) + Vector3.new(0, 2, 0)
+		cam.CFrame = CFrame.lookAt(camPos, focus)
+		if activeTween then
+			activeTween:Cancel()
+		end
+		-- a slow push toward the box for the set-piece broadcast feel
+		activeTween = TweenService:Create(
+			cam,
+			TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+			{ CFrame = CFrame.lookAt(camPos + toGoal * 4 + Vector3.new(0, -1.5, 0), focus) }
+		)
+		;(activeTween :: Tween):Play()
+	end)
+	if not ok then
+		restore()
+	end
+end
+
+function CameraDirector.cornerEnd()
+	if mode == "corner" then
 		restore()
 	end
 end

@@ -69,8 +69,11 @@ local goalEvent: RemoteEvent
 local toastEvent: RemoteEvent
 local summaryEvent: RemoteEvent
 local penaltyEvent: RemoteEvent
+local cornerEvent: RemoteEvent
 -- a human's pick-a-corner penalty input, keyed by UserId, consumed by takePenalty
 local pendingKick: { [number]: { corner: number, power: number } } = {}
+-- a human's pick-a-target corner delivery, keyed by UserId, consumed by startCorner
+local pendingCorner: { [number]: { target: string, power: number } } = {}
 -- per-human snapshot taken at kickoff so the full-time card can show THIS match's
 -- gains (XP, goals, nutmegs) by diffing against lifetime totals
 local matchStart: { [Player]: { xp: number, goals: number, nutmegs: number } } = {}
@@ -901,9 +904,11 @@ end
 
 -- A corner SET-PIECE (fired from BallService.onCorner; the ball is already held at
 -- the flag). Pause the bots so positions stick, send the attackers into the box
--- (near post / pen spot / far post), the keeper to his line, then the taker whips a
--- lofted cross to a danger zone — and the new HEADER mechanic + live play resolve
--- the scramble. v1: the taker auto-delivers; the human pick-a-target UI is next.
+-- (near post / pen spot / far post) and the keeper to his line. If the NEAREST
+-- attacker is a human, they step up: their camera swings behind the flag and a
+-- pick-a-target aimer (NEAR / FAR / SPOT / SHORT + hold-to-power) goes up; otherwise
+-- a bot auto-delivers. Either way the taker whips a lofted cross to a danger zone
+-- and the HEADER mechanic + live play resolve the scramble.
 local cornerActive = false
 function MatchService.startCorner(team: string, spot: Vector3)
 	if cornerActive then
@@ -917,9 +922,13 @@ function MatchService.startCorner(team: string, spot: Vector3)
 	local intoField = (goalZ >= FIELD.CenterZ) and -1 or 1 -- from the goal line toward the pitch
 	local cornerSide = (spot.X >= FIELD.CenterX) and 1 or -1
 	local headY = FIELD.GroundY + 4.5
+	-- the four pickable delivery targets (head height for the posts/spot; a lower,
+	-- nearer ball for the short option)
 	local nearPost = Vector3.new(FIELD.CenterX + cornerSide * (GOAL.Width / 2 - 1), headY, goalZ + intoField * 4)
 	local penSpot = Vector3.new(FIELD.CenterX, headY, goalZ + intoField * 14)
 	local farPost = Vector3.new(FIELD.CenterX - cornerSide * (GOAL.Width / 2 - 1), headY, goalZ + intoField * 7)
+	local shortBall = Vector3.new(FIELD.CenterX + cornerSide * 8, FIELD.GroundY + 2.5, goalZ + intoField * 13)
+	local targetByName = { near = nearPost, far = farPost, spot = penSpot, short = shortBall }
 
 	AIService.setActive(false)
 	if toastEvent then
@@ -961,16 +970,68 @@ function MatchService.startCorner(team: string, spot: Vector3)
 		end
 	end
 
-	task.wait(1.3) -- everyone gets set
-
-	local target = ({ nearPost, penSpot })[math.random(1, 2)]
 	local takerModel = taker and taker.model or nil
 	local takerUid = takerModel and ((takerModel:GetAttribute("UserId") :: number?) or 0) or 0
-	BallService.deliverCross(team, target, 0.55 + math.random() * 0.25, takerUid, takerModel)
+	local takerPlayer = (takerModel and takerModel:GetAttribute("IsBot") ~= true and takerUid ~= 0)
+			and Players:GetPlayerByUserId(takerUid)
+		or nil
+
+	local target: Vector3
+	local power: number
+	if takerPlayer then
+		-- a HUMAN steps up: freeze them on the spot, swing their camera behind the
+		-- flag, raise the pick-a-target aimer, then resolve on their pick (or a tame
+		-- timeout so the set-piece can never stall).
+		PlayerService.setFrozen(takerPlayer, true)
+		local goalCenter = Vector3.new(FIELD.CenterX, FIELD.GroundY + GOAL.Height / 2, goalZ)
+		pendingCorner[takerUid] = nil
+		if cornerEvent then
+			cornerEvent:FireClient(takerPlayer, {
+				active = true,
+				takerUserId = takerUid,
+				spot = spot,
+				goalCenter = goalCenter,
+				side = cornerSide,
+			})
+		end
+		local waitUntil = os.clock() + 7
+		while os.clock() < waitUntil and not pendingCorner[takerUid] and takerPlayer.Parent do
+			task.wait(0.1)
+		end
+		local pc = pendingCorner[takerUid]
+		pendingCorner[takerUid] = nil
+		target = (pc and targetByName[pc.target]) or penSpot
+		power = (pc and pc.power) or 0.5
+	else
+		task.wait(1.3) -- a beat for everyone to set
+		target = ({ nearPost, penSpot, farPost })[math.random(1, 3)]
+		power = 0.55 + math.random() * 0.25
+	end
+
+	BallService.deliverCross(team, target, power, takerUid, takerModel)
+
+	if takerPlayer then
+		task.wait(0.7) -- let the camera trail the cross a beat before handing it back
+		if cornerEvent then
+			cornerEvent:FireClient(takerPlayer, { active = false })
+		end
+		PlayerService.setFrozen(takerPlayer, false) -- live again: chase the rebound
+	end
 	AIService.setActive(true) -- live again: the box reacts and the headers fly
 
 	task.wait(0.6)
 	cornerActive = false
+end
+
+-- A human taker's pick-a-target corner input (validated; consumed by startCorner).
+function MatchService.submitCornerKick(player: Player, target: string, power: number)
+	if type(target) ~= "string" or type(power) ~= "number" then
+		return
+	end
+	if target ~= "near" and target ~= "far" and target ~= "spot" and target ~= "short" then
+		return -- only the four legal zones; never trust the client
+	end
+	pendingCorner[player.UserId] = { target = target, power = math.clamp(power, 0, 1) }
 end
 
 function MatchService.init(_world: WorldService.World)
@@ -980,6 +1041,7 @@ function MatchService.init(_world: WorldService.World)
 	toastEvent = Remotes.get(Remotes.Toast)
 	summaryEvent = Remotes.get(Remotes.MatchSummary)
 	penaltyEvent = Remotes.get(Remotes.Penalty)
+	cornerEvent = Remotes.get(Remotes.Corner)
 
 	BallService.onGoal = onGoal
 

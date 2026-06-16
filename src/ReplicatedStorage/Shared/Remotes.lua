@@ -23,6 +23,7 @@ Remotes.RequestSkill = "RequestSkill"                -- skillId: perform an unlo
 Remotes.RequestEquip = "RequestEquip"                -- slot, id: equip an unlocked cosmetic
 Remotes.RequestPenaltyKick = "RequestPenaltyKick"    -- corner (-1/0/1), power (0..1): my pick-a-corner penalty
 Remotes.RequestShootout = "RequestShootout"          -- toggle server-wide Penalty Shootout mode
+Remotes.RequestCornerKick = "RequestCornerKick"      -- target ("near"/"far"/"spot"/"short"), power (0..1): my corner delivery
 
 -- server -> client
 Remotes.MatchState = "MatchState"               -- full snapshot (phase, scores, time, your team/role)
@@ -37,6 +38,7 @@ Remotes.TournamentLobby = "TournamentLobby"     -- { open: boolean, seconds: num
 Remotes.XpGain = "XpGain"                        -- amount: number, label: string (transient reward chip)
 Remotes.MatchSummary = "MatchSummary"            -- per-player full-time card: { outcome, xpEarned, level, goals, nutmegs, scoreYour, scoreOpp }
 Remotes.Penalty = "Penalty"                      -- shootout kick: { active, shooterUserId, spot, goalCenter } (camera + my aim UI)
+Remotes.Corner = "Corner"                        -- corner set-piece: { active, takerUserId, spot, goalCenter, side } (taker's camera + pick-a-target UI)
 
 local ALL_EVENTS = {
 	Remotes.RequestInitialState,
@@ -51,6 +53,7 @@ local ALL_EVENTS = {
 	Remotes.RequestEquip,
 	Remotes.RequestPenaltyKick,
 	Remotes.RequestShootout,
+	Remotes.RequestCornerKick,
 	Remotes.ProgressionSync,
 	Remotes.MatchState,
 	Remotes.Countdown,
@@ -63,6 +66,7 @@ local ALL_EVENTS = {
 	Remotes.XpGain,
 	Remotes.MatchSummary,
 	Remotes.Penalty,
+	Remotes.Corner,
 }
 
 -- SERVER ONLY: build the folder + RemoteEvents, then parent the folder LAST so

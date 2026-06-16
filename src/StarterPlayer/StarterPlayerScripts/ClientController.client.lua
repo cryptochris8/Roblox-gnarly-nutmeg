@@ -23,11 +23,13 @@ local GoalFx = require(scripts:WaitForChild("GoalFx"))
 local PhotoMode = require(scripts:WaitForChild("PhotoMode"))
 local GoalMarker = require(scripts:WaitForChild("GoalMarker"))
 local PenaltyUI = require(scripts:WaitForChild("PenaltyUI"))
+local CornerUI = require(scripts:WaitForChild("CornerUI"))
 
 HudUI.mount(playerGui)
 MenuUI.mount(playerGui)
 QuestUI.mount(playerGui)
 PenaltyUI.mount(playerGui)
+CornerUI.mount(playerGui)
 InputController.start(HudUI)
 PhotoMode.init()
 GoalMarker.init()
@@ -157,6 +159,22 @@ Remotes.get(Remotes.Penalty).OnClientEvent:Connect(function(info)
 	else
 		CameraDirector.penaltyEnd()
 		PenaltyUI.hide()
+	end
+end)
+-- Corner: it's only ever sent to the taker — swing the broadcast camera behind the
+-- flag and raise the pick-a-target aimer; clear when the server says the kick is done.
+Remotes.get(Remotes.Corner).OnClientEvent:Connect(function(info)
+	if type(info) ~= "table" then
+		return
+	end
+	if info.active then
+		CameraDirector.corner(info.spot, info.goalCenter)
+		if info.takerUserId == player.UserId then
+			CornerUI.show()
+		end
+	else
+		CameraDirector.cornerEnd()
+		CornerUI.hide()
 	end
 end)
 
