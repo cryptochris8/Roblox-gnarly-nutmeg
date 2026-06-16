@@ -53,7 +53,11 @@ function MenuUI.mount(playerGui)
 
 	local selectEvent = Remotes.get(Remotes.SelectTeam)
 
-	local function teamButton(name, color, x)
+	-- label is what the player SEES (with a colourblind-safe shape); value is the
+	-- exact team name the server expects. They were one and the same before, so the
+	-- button sent "RED"/"BLUE" — which selectTeam rejects (it wants "Red"/"Blue"),
+	-- silently breaking the picker. Decoupling fixes that too.
+	local function teamButton(label, value, color, x)
 		local b = UiTheme.make("TextButton", {
 			Position = UDim2.fromOffset(x, touch and 26 or 34),
 			Size = UDim2.fromOffset(touch and 66 or 78, touch and 46 or 46),
@@ -61,19 +65,19 @@ function MenuUI.mount(playerGui)
 			Font = UiTheme.Header,
 			TextSize = touch and 15 or 18,
 			TextColor3 = C.Panel,
-			Text = name,
+			Text = label,
 			AutoButtonColor = true,
 			Parent = panel,
 		})
 		UiTheme.corner(12, b)
 		b.MouseButton1Click:Connect(function()
-			selectEvent:FireServer(name)
+			selectEvent:FireServer(value)
 		end)
 		return b
 	end
 
-	teamButton("RED", C.Red, touch and 8 or 12)
-	teamButton("BLUE", C.Blue, touch and 78 or 94)
+	teamButton("▲ RED", "Red", C.Red, touch and 8 or 12)
+	teamButton("● BLUE", "Blue", C.Blue, touch and 78 or 94)
 
 	-- THE NUTMEG TROPHY: launch a tournament run as your chosen nation
 	local startEvent = Remotes.get(Remotes.StartTournament)

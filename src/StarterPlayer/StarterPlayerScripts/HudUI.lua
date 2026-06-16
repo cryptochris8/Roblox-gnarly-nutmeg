@@ -65,7 +65,7 @@ function HudUI.mount(playerGui)
 		TextColor3 = C.Panel,
 		Position = UDim2.new(0, 12, 0, 8),
 		Size = UDim2.new(1, -24, 0, 38),
-		Text = "RED  0 : 0  BLUE",
+		Text = "▲ RED  0 : 0  ● BLUE",
 		Parent = panel,
 	})
 	phaseLabel = UiTheme.make("TextLabel", {
@@ -380,8 +380,10 @@ function HudUI.updateMatch(snap)
 	local blueName = snap.blueName or "BLUE"
 	local redC = vivid(snap.redColor or C.Red)
 	local blueC = vivid(snap.blueColor or C.Blue)
+	-- a SHAPE per side (▲ red / ● blue) rides alongside the colour so the score reads
+	-- with any colour vision (the two kit colours are near-equal luminance)
 	scoreLabel.Text = string.format(
-		'<font color="%s">%s</font>  %d : %d  <font color="%s">%s</font>',
+		'<font color="%s">▲ %s</font>  %d : %d  <font color="%s">● %s</font>',
 		rgbTag(redC), redName,
 		snap.red or 0,
 		snap.blue or 0,
@@ -448,7 +450,7 @@ function HudUI.goal(info)
 	end
 	local team = info and info.team or ""
 	goalFrame.BackgroundColor3 = (team == "Red") and C.Red or C.Blue
-	goalLabel.Text = tostring(info and info.teamName or string.upper(team)) .. " GOAL!"
+	goalLabel.Text = ((team == "Red") and "▲ " or "● ") .. tostring(info and info.teamName or string.upper(team)) .. " GOAL!"
 	if info and info.scorer then
 		HudUI.toast("⚽ " .. tostring(info.scorer) .. " scores!")
 	end
@@ -517,7 +519,7 @@ function HudUI.possession(mine, team)
 		ballChip.Text = "⚽ You have the ball!"
 		ballChip.Visible = true
 	elseif team == "Red" or team == "Blue" then
-		ballChip.Text = (team == "Red") and "⚽ RED have it" or "⚽ BLUE have it"
+		ballChip.Text = (team == "Red") and "⚽ ▲ RED have it" or "⚽ ● BLUE have it"
 		ballChip.Visible = true
 	else
 		ballChip.Visible = false -- loose ball: it's anyone's
