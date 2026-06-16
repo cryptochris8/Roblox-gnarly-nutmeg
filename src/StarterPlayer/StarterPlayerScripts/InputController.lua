@@ -98,7 +98,9 @@ local function onShoot(_, state)
 	return Enum.ContextActionResult.Sink
 end
 
-local TOUCH_TITLES = { elastico = "Dash", roulette = "Spin", rainbow = "Flick", chop = "Chop", fakeshot = "Fake" }
+-- glyph + word so a non-reader can still tell the skills apart
+local TOUCH_TITLES =
+	{ elastico = "💫\nDash", roulette = "🌀\nSpin", rainbow = "🌈\nFlick", chop = "✂\nChop", fakeshot = "🎭\nFake" }
 
 -- CUSTOM TOUCH CONTROLS: a deliberate bottom-right thumb-fan (Shoot at the
 -- corner, the core four on an arc) plus skill buttons that appear ONLY once
@@ -117,10 +119,12 @@ local function buildTouchControls()
 	local cam = workspace.CurrentCamera
 	local shortSide = cam and math.min(cam.ViewportSize.X, cam.ViewportSize.Y) or 720
 	local phone = shortSide < 600
-	local R = phone and 128 or 158
-	local shootPx = phone and 88 or 106
-	local corePx = phone and 60 or 74
-	local skillPx = phone and 48 or 58
+	-- bigger targets + a wider arc so the enlarged buttons don't crowd (the 6-8yo
+	-- audience has small hands; word-only circles were also unreadable to non-readers)
+	local R = phone and 140 or 170
+	local shootPx = phone and 92 or 110
+	local corePx = phone and 70 or 82
+	local skillPx = phone and 58 or 64
 	local cx, cy = -92, -92 -- Shoot centre, offset from the bottom-right corner
 
 	local function makeBtn(label, sizePx, offX, offY, bg)
@@ -140,10 +144,10 @@ local function buildTouchControls()
 		local cc = b:FindFirstChildOfClass("UICorner")
 		if cc then cc.CornerRadius = UDim.new(1, 0) end
 		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0.12, 0)
-		pad.PaddingRight = UDim.new(0.12, 0)
-		pad.PaddingTop = UDim.new(0.32, 0)
-		pad.PaddingBottom = UDim.new(0.32, 0)
+		pad.PaddingLeft = UDim.new(0.08, 0)
+		pad.PaddingRight = UDim.new(0.08, 0)
+		pad.PaddingTop = UDim.new(0.14, 0)
+		pad.PaddingBottom = UDim.new(0.14, 0)
 		pad.Parent = b
 		local stroke = Instance.new("UIStroke")
 		stroke.Color = Color3.fromRGB(255, 255, 255)
@@ -182,7 +186,7 @@ local function buildTouchControls()
 	end
 
 	-- core fan
-	local shoot = makeBtn("Shoot", shootPx, cx, cy, Color3.fromRGB(70, 150, 95))
+	local shoot = makeBtn("⚽\nSHOOT", shootPx, cx, cy, Color3.fromRGB(70, 150, 95))
 	onHold(shoot, function()
 		onShoot(nil, Enum.UserInputState.Begin)
 	end, function()
@@ -192,19 +196,19 @@ local function buildTouchControls()
 		return cx - R * math.cos(math.rad(deg)), cy - R * math.sin(math.rad(deg))
 	end
 	local ax, ay = arc(0)
-	onTap(makeBtn("Pass", corePx, ax, ay), function()
+	onTap(makeBtn("👟\nPASS", corePx, ax, ay), function()
 		onPass(nil, Enum.UserInputState.Begin)
 	end)
 	ax, ay = arc(30)
-	onTap(makeBtn("Tackle", corePx, ax, ay), function()
+	onTap(makeBtn("🛡\nTACKLE", corePx, ax, ay), function()
 		onTackle(nil, Enum.UserInputState.Begin)
 	end)
 	ax, ay = arc(60)
-	onTap(makeBtn("Nutmeg", corePx, ax, ay), function()
+	onTap(makeBtn("✨\nNUTMEG", corePx, ax, ay), function()
 		onNutmeg(nil, Enum.UserInputState.Begin)
 	end)
 	ax, ay = arc(90)
-	local sprint = makeBtn("Sprint", corePx, ax, ay, Color3.fromRGB(60, 95, 130))
+	local sprint = makeBtn("🏃\nSPRINT", corePx, ax, ay, Color3.fromRGB(60, 95, 130))
 	onHold(sprint, function()
 		onSprint(nil, Enum.UserInputState.Begin)
 	end, function()

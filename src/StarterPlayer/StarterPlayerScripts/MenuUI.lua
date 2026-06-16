@@ -56,7 +56,7 @@ function MenuUI.mount(playerGui)
 	local function teamButton(name, color, x)
 		local b = UiTheme.make("TextButton", {
 			Position = UDim2.fromOffset(x, touch and 26 or 34),
-			Size = UDim2.fromOffset(touch and 64 or 78, touch and 36 or 46),
+			Size = UDim2.fromOffset(touch and 66 or 78, touch and 46 or 46),
 			BackgroundColor3 = color,
 			Font = UiTheme.Header,
 			TextSize = touch and 15 or 18,
@@ -78,6 +78,105 @@ function MenuUI.mount(playerGui)
 	-- THE NUTMEG TROPHY: launch a tournament run as your chosen nation
 	local startEvent = Remotes.get(Remotes.StartTournament)
 	local gold = Color3.fromRGB(245, 196, 60)
+
+	-- A kid-proof confirm gate for the only two SERVER-WIDE actions a player can
+	-- trigger (start a tournament for everyone / flip shootout mode for everyone).
+	-- Before this, one curious tap rerouted the whole server's match.
+	local confirmBackdrop = UiTheme.make("Frame", {
+		Name = "ConfirmBackdrop",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		BackgroundTransparency = 0.45,
+		Visible = false,
+		Active = true, -- swallow taps to the panels behind
+		ZIndex = 60,
+		Parent = gui,
+	})
+	local confirmModal = UiTheme.make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.fromOffset(400, 220),
+		BackgroundColor3 = C.PanelDark,
+		BackgroundTransparency = 0.02,
+		ZIndex = 61,
+		Parent = confirmBackdrop,
+	})
+	local confirmCap = Instance.new("UISizeConstraint")
+	confirmCap.MaxSize = Vector2.new(440, 250)
+	confirmCap.Parent = confirmModal
+	UiTheme.corner(18, confirmModal)
+	UiTheme.stroke(gold, 2, confirmModal)
+	UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Header,
+		TextSize = 20,
+		TextColor3 = gold,
+		Text = "⚠ THIS CHANGES THE GAME FOR EVERYONE",
+		Position = UDim2.fromOffset(16, 16),
+		Size = UDim2.new(1, -32, 0, 40),
+		TextWrapped = true,
+		ZIndex = 62,
+		Parent = confirmModal,
+	})
+	local confirmLabel = UiTheme.make("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = UiTheme.Body,
+		TextSize = 17,
+		TextColor3 = C.Panel,
+		Text = "",
+		Position = UDim2.fromOffset(24, 60),
+		Size = UDim2.new(1, -48, 0, 64),
+		TextWrapped = true,
+		ZIndex = 62,
+		Parent = confirmModal,
+	})
+	local confirmAction: (() -> ())? = nil
+	local confirmYes = UiTheme.make("TextButton", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 20, 1, -16),
+		Size = UDim2.new(0.5, -28, 0, 54),
+		BackgroundColor3 = Color3.fromRGB(90, 200, 140),
+		Font = UiTheme.Header,
+		TextSize = 19,
+		TextColor3 = C.Ink,
+		Text = "✓ YES",
+		AutoButtonColor = true,
+		ZIndex = 62,
+		Parent = confirmModal,
+	})
+	UiTheme.corner(12, confirmYes)
+	local confirmCancel = UiTheme.make("TextButton", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -20, 1, -16),
+		Size = UDim2.new(0.5, -28, 0, 54),
+		BackgroundColor3 = C.Track,
+		Font = UiTheme.Header,
+		TextSize = 19,
+		TextColor3 = C.Panel,
+		Text = "✕ CANCEL",
+		AutoButtonColor = true,
+		ZIndex = 62,
+		Parent = confirmModal,
+	})
+	UiTheme.corner(12, confirmCancel)
+	local function askConfirm(message: string, action: () -> ())
+		confirmLabel.Text = message
+		confirmAction = action
+		confirmBackdrop.Visible = true
+	end
+	confirmYes.MouseButton1Click:Connect(function()
+		confirmBackdrop.Visible = false
+		local a = confirmAction
+		confirmAction = nil
+		if a then
+			a()
+		end
+	end)
+	confirmCancel.MouseButton1Click:Connect(function()
+		confirmBackdrop.Visible = false
+		confirmAction = nil
+	end)
+
 	-- mobile: 🏆 / 👕 / 📋 become a compact icon row under the team panel
 	local trophyBtn = UiTheme.make("TextButton", {
 		Position = UDim2.fromOffset(touch and 10 or 18, touch and 82 or 122),
@@ -121,7 +220,7 @@ function MenuUI.mount(playerGui)
 	local closeBtn = UiTheme.make("TextButton", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -10, 0, 10),
-		Size = UDim2.fromOffset(30, 30),
+		Size = UDim2.fromOffset(44, 44),
 		BackgroundColor3 = C.Track,
 		Font = UiTheme.Header,
 		TextSize = 16,
@@ -162,8 +261,10 @@ function MenuUI.mount(playerGui)
 		})
 		UiTheme.corner(10, b)
 		b.MouseButton1Click:Connect(function()
-			startEvent:FireServer(nation.name)
-			picker.Visible = false
+			askConfirm(("Start a NUTMEG TROPHY for EVERYONE as %s?"):format(nation.name), function()
+				startEvent:FireServer(nation.name)
+				picker.Visible = false
+			end)
 		end)
 	end
 
@@ -238,7 +339,7 @@ function MenuUI.mount(playerGui)
 	local lockerClose = UiTheme.make("TextButton", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -10, 0, 8),
-		Size = UDim2.fromOffset(34, 34),
+		Size = UDim2.fromOffset(44, 44),
 		BackgroundColor3 = C.Track,
 		Font = UiTheme.Header,
 		TextSize = 16,
@@ -436,7 +537,9 @@ function MenuUI.mount(playerGui)
 	UiTheme.stroke(gold, 1, shootoutBtn)
 	local shootoutEvent = Remotes.get(Remotes.RequestShootout)
 	shootoutBtn.MouseButton1Click:Connect(function()
-		shootoutEvent:FireServer()
+		askConfirm("Switch the WHOLE server between full matches and penalty shootouts?", function()
+			shootoutEvent:FireServer()
+		end)
 	end)
 
 	-- reflect the live server mode (called by ClientController from the snapshot)
@@ -449,7 +552,7 @@ function MenuUI.mount(playerGui)
 		end
 	end
 
-	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto, shootoutBtn = shootoutBtn }
+	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto, shootoutBtn = shootoutBtn, confirmBackdrop = confirmBackdrop }
 
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)
 	if not UserInputService.TouchEnabled then
@@ -484,6 +587,9 @@ function MenuUI.matchActive(active)
 		if refs.howto then
 			refs.howto.Visible = false
 		end
+		-- NOTE: the confirm modal is intentionally NOT cleared here — matchActive
+		-- fires every 1s broadcast, which would clobber a just-opened confirm. It's a
+		-- modal; it persists until the player taps YES/CANCEL.
 	end
 	if UserInputService.TouchEnabled then
 		local show = not active
