@@ -4,9 +4,33 @@
 -- result banner. All driven by the server via ClientController.
 
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
+local Skills = require(Shared:WaitForChild("Skills"))
 
 local UiTheme = require(script.Parent.UiTheme)
 local C = UiTheme.Colors
+
+-- The soonest NAMED reward the player hasn't reached yet (boots / trail /
+-- celebration / skill), so the full-time card always dangles a concrete next goal
+-- — the highest-ROI retention nudge from the eval.
+local function nextUnlock(level: number)
+	local best: { level: number, label: string }? = nil
+	local function consider(list, emoji)
+		for _, item in ipairs(list) do
+			if item.unlockLevel > level and (not best or item.unlockLevel < best.level) then
+				best = { level = item.unlockLevel, label = emoji .. " " .. item.name }
+			end
+		end
+	end
+	consider(Cosmetics.Boots, "👟")
+	consider(Cosmetics.Trails, "✨")
+	consider(Cosmetics.Celebrations, "🎉")
+	consider(Skills.List, "⚡")
+	return best
+end
 
 local HudUI = {}
 
@@ -315,7 +339,7 @@ function HudUI.mount(playerGui)
 		Name = "Result",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.fromOffset(540, 172),
+		Size = UDim2.fromOffset(540, 190),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.05,
 		Visible = false,
@@ -342,7 +366,7 @@ function HudUI.mount(playerGui)
 		TextColor3 = Color3.fromRGB(245, 196, 60),
 		Text = "",
 		Visible = false,
-		Size = UDim2.new(1, -24, 0, 60),
+		Size = UDim2.new(1, -24, 0, 76),
 		Position = UDim2.fromOffset(12, 100),
 		TextWrapped = true,
 		Parent = resultFrame,
@@ -595,6 +619,15 @@ function HudUI.matchSummary(data)
 	end
 	bits[#bits + 1] = ("Level %d"):format(tonumber(data.level) or 1)
 	summaryLabel.Text = table.concat(bits, "    ")
+	-- dangle the next named unlock on its own line so even a loss ends with a reason
+	-- to play one more
+	local lvl = tonumber(data.level) or 1
+	local nu = nextUnlock(lvl)
+	if nu then
+		local togo = nu.level - lvl
+		summaryLabel.Text = summaryLabel.Text
+			.. ("\n🔜 %s — %d level%s to go!"):format(nu.label, togo, (togo == 1) and "" or "s")
+	end
 	summaryLabel.Visible = true
 	resultFrame.Visible = true
 end
