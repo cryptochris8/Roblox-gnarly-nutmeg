@@ -61,6 +61,7 @@ local shootoutGoalTeam: string? = nil
 local shootoutTally = { Red = 0, Blue = 0 }
 local shootoutWinner: string? = nil
 local shootoutModeOn = false -- server-wide: when true, every match is a best-of-5 shootout
+local casualModeOn = false -- server-wide: when true, all bots are pinned to the easiest league
 local preferred: { [Player]: string } = {}
 
 local matchStateEvent: RemoteEvent
@@ -97,6 +98,7 @@ local function snapshot()
 		roundLabel = MatchService.roundLabel,
 		board = MatchService.board,
 		shootoutMode = shootoutModeOn,
+		casualMode = casualModeOn,
 	}
 	return snap
 end
@@ -697,6 +699,9 @@ local function runMatchLoop()
 		local redH, blueH = strongest("Red"), strongest("Blue")
 		local redTier = math.clamp(math.max((redH > 0) and PRO_TIER or 0, blueH), 1, Leagues.MaxTier)
 		local blueTier = math.clamp(math.max((blueH > 0) and PRO_TIER or 0, redH), 1, Leagues.MaxTier)
+		if casualModeOn then
+			redTier, blueTier = 1, 1 -- CASUAL: pin both teams to the easiest league
+		end
 		DifficultyService.setTiers(redTier, blueTier)
 		-- tell each human, only when it changes, what they're now up against
 		for _, plr in ipairs(Players:GetPlayers()) do
@@ -917,6 +922,26 @@ function MatchService.toggleShootoutMode(_player: Player)
 		toastEvent:FireAllClients(
 			shootoutModeOn and "⚡ PENALTY SHOOTOUT mode — straight to the spot!"
 				or "⚽ Back to FULL MATCHES"
+		)
+	end
+	broadcastNow() -- push the new mode to clients (updates the button)
+end
+
+-- Server-wide CASUAL MODE: pin every bot to the easiest league so our youngest
+-- players get gentle, beatable opponents (and teammates that won't overshadow
+-- them). Unlike shootout this needs no abort — turning it ON eases the LIVE match
+-- immediately (DifficultyService is read per-tick by the AI), and every later
+-- match respects the flag at setup. Turning OFF restores normal difficulty from
+-- the next match (the current one rides out easy, which never hurts).
+function MatchService.toggleCasualMode(_player: Player)
+	casualModeOn = not casualModeOn
+	if casualModeOn then
+		DifficultyService.setTiers(1, 1) -- ease the bots already on the pitch right now
+	end
+	if toastEvent then
+		toastEvent:FireAllClients(
+			casualModeOn and "🧸 CASUAL MODE — easy bots for everyone!"
+				or "💪 Normal difficulty from the next match"
 		)
 	end
 	broadcastNow() -- push the new mode to clients (updates the button)

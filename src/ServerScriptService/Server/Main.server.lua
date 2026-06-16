@@ -289,6 +289,11 @@ Remotes.get(Remotes.RequestShootout).OnServerEvent:Connect(function(player)
 	MatchService.toggleShootoutMode(player)
 end)
 
+-- Toggle server-wide Casual mode (easy bots for everyone).
+Remotes.get(Remotes.RequestCasual).OnServerEvent:Connect(function(player)
+	MatchService.toggleCasualMode(player)
+end)
+
 Remotes.get(Remotes.StartTournament).OnServerEvent:Connect(function(player, nationName)
 	if type(nationName) == "string" then
 		TournamentService.start(player, nationName)

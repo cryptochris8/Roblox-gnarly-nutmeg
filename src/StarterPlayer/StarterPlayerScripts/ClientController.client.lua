@@ -64,6 +64,9 @@ Remotes.get(Remotes.MatchState).OnClientEvent:Connect(function(snap)
 		if MenuUI.setShootoutMode then
 			MenuUI.setShootoutMode(snap.shootoutMode)
 		end
+		if MenuUI.setCasualMode then
+			MenuUI.setCasualMode(snap.casualMode)
+		end
 		GoalMarker.refresh() -- team can flip between matches
 	end
 end)

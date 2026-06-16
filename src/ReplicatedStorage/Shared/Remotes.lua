@@ -23,6 +23,7 @@ Remotes.RequestSkill = "RequestSkill"                -- skillId: perform an unlo
 Remotes.RequestEquip = "RequestEquip"                -- slot, id: equip an unlocked cosmetic
 Remotes.RequestPenaltyKick = "RequestPenaltyKick"    -- corner (-1/0/1), power (0..1): my pick-a-corner penalty
 Remotes.RequestShootout = "RequestShootout"          -- toggle server-wide Penalty Shootout mode
+Remotes.RequestCasual = "RequestCasual"              -- toggle server-wide Casual (easy bots) mode
 Remotes.RequestCornerKick = "RequestCornerKick"      -- target ("near"/"far"/"spot"/"short"), power (0..1): my corner delivery
 
 -- server -> client
@@ -53,6 +54,7 @@ local ALL_EVENTS = {
 	Remotes.RequestEquip,
 	Remotes.RequestPenaltyKick,
 	Remotes.RequestShootout,
+	Remotes.RequestCasual,
 	Remotes.RequestCornerKick,
 	Remotes.ProgressionSync,
 	Remotes.MatchState,

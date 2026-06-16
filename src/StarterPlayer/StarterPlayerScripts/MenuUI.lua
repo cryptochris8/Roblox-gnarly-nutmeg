@@ -556,7 +556,40 @@ function MenuUI.mount(playerGui)
 		end
 	end
 
-	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto, shootoutBtn = shootoutBtn, confirmBackdrop = confirmBackdrop }
+	-- 🧸 CASUAL mode: easy, beatable bots for our youngest players. Server-wide
+	-- toggle (so it also helps a kid playing on a parent's team); the button mirrors
+	-- the live mode. 6th slot: mobile x=260, desktop y=362 (below ⚡ at 314).
+	local casualGreen = Color3.fromRGB(120, 205, 140)
+	local casualBtn = UiTheme.make("TextButton", {
+		Position = UDim2.fromOffset(touch and 260 or 18, touch and 82 or 362),
+		Size = UDim2.fromOffset(touch and 44 or 184, 40),
+		BackgroundColor3 = C.PanelDark,
+		Font = UiTheme.Header,
+		TextSize = touch and 20 or 15,
+		TextColor3 = C.Panel,
+		Text = touch and "🧸" or "🧸 CASUAL",
+		AutoButtonColor = true,
+		Parent = gui,
+	})
+	UiTheme.corner(12, casualBtn)
+	UiTheme.stroke(casualGreen, 1, casualBtn)
+	local casualEvent = Remotes.get(Remotes.RequestCasual)
+	casualBtn.MouseButton1Click:Connect(function()
+		askConfirm("Turn EASY MODE on/off for everyone in the server? (gentler bots)", function()
+			casualEvent:FireServer()
+		end)
+	end)
+
+	function MenuUI.setCasualMode(on)
+		on = on and true or false
+		casualBtn.BackgroundColor3 = on and casualGreen or C.PanelDark
+		casualBtn.TextColor3 = on and C.Ink or C.Panel
+		if not touch then
+			casualBtn.Text = on and "🧸 CASUAL  ✓" or "🧸 CASUAL"
+		end
+	end
+
+	refs = { panel = panel, picker = picker, locker = locker, trophyBtn = trophyBtn, lockerBtn = lockerBtn, helpBtn = helpBtn, howto = howto, shootoutBtn = shootoutBtn, casualBtn = casualBtn, confirmBackdrop = confirmBackdrop }
 
 	-- Desktop controls hint (hidden on touch devices, which have on-screen buttons)
 	if not UserInputService.TouchEnabled then
@@ -611,6 +644,9 @@ function MenuUI.matchActive(active)
 		end
 		if refs.shootoutBtn then
 			refs.shootoutBtn.Visible = show
+		end
+		if refs.casualBtn then
+			refs.casualBtn.Visible = show
 		end
 	end
 end
