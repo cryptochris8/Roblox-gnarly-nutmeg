@@ -899,6 +899,80 @@ function MatchService.toggleShootoutMode(_player: Player)
 	broadcastNow() -- push the new mode to clients (updates the button)
 end
 
+-- A corner SET-PIECE (fired from BallService.onCorner; the ball is already held at
+-- the flag). Pause the bots so positions stick, send the attackers into the box
+-- (near post / pen spot / far post), the keeper to his line, then the taker whips a
+-- lofted cross to a danger zone — and the new HEADER mechanic + live play resolve
+-- the scramble. v1: the taker auto-delivers; the human pick-a-target UI is next.
+local cornerActive = false
+function MatchService.startCorner(team: string, spot: Vector3)
+	if cornerActive then
+		return
+	end
+	cornerActive = true
+	local FIELD = GameConfig.Field
+	local GOAL = GameConfig.Goal
+	local oppName = TeamService.info(team).opponent
+	local goalZ = TeamService.info(oppName).ownGoalZ
+	local intoField = (goalZ >= FIELD.CenterZ) and -1 or 1 -- from the goal line toward the pitch
+	local cornerSide = (spot.X >= FIELD.CenterX) and 1 or -1
+	local headY = FIELD.GroundY + 4.5
+	local nearPost = Vector3.new(FIELD.CenterX + cornerSide * (GOAL.Width / 2 - 1), headY, goalZ + intoField * 4)
+	local penSpot = Vector3.new(FIELD.CenterX, headY, goalZ + intoField * 14)
+	local farPost = Vector3.new(FIELD.CenterX - cornerSide * (GOAL.Width / 2 - 1), headY, goalZ + intoField * 7)
+
+	AIService.setActive(false)
+	if toastEvent then
+		toastEvent:FireAllClients("⛳ Corner — " .. TeamService.info(team).displayName)
+	end
+
+	-- the attacking team's players; nearest to the flag takes it, the rest crash the box
+	local attackers = {}
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team == team then
+			attackers[#attackers + 1] = f
+		end
+	end
+	table.sort(attackers, function(a, b)
+		return (a.root.Position - spot).Magnitude < (b.root.Position - spot).Magnitude
+	end)
+	local taker = attackers[1]
+	local boxAim = Vector3.new(FIELD.CenterX, FIELD.GroundY + 1, goalZ + intoField * 8)
+	if taker then
+		pcall(function()
+			(taker.model :: Model):PivotTo(CFrame.lookAt(
+				Vector3.new(spot.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, spot.Z) + (spot - boxAim).Unit * 2.5,
+				boxAim
+			))
+		end)
+	end
+	local runs = { nearPost, penSpot, farPost }
+	for i = 2, math.min(#attackers, 4) do
+		local p = runs[i - 1] or penSpot
+		pcall(function()
+			(attackers[i].model :: Model):PivotTo(CFrame.new(p.X, FIELD.GroundY + GameConfig.Player.SpawnHeight, p.Z))
+		end)
+	end
+	for _, f in ipairs(BallService.listFootballers()) do
+		if f.team == oppName and f.role == GameConfig.GoalkeeperRole then
+			pcall(function()
+				(f.model :: Model):PivotTo(CFrame.new(FIELD.CenterX, FIELD.GroundY + GameConfig.Player.SpawnHeight, goalZ + intoField * 1.5))
+			end)
+		end
+	end
+
+	task.wait(1.3) -- everyone gets set
+
+	local target = ({ nearPost, penSpot })[math.random(1, 2)]
+	local takerModel = taker and taker.model or nil
+	local takerUid = takerModel and ((takerModel:GetAttribute("UserId") :: number?) or 0) or 0
+	BallService.deliverCross(team, target, 0.55 + math.random() * 0.25, takerUid, takerModel)
+	AIService.setActive(true) -- live again: the box reacts and the headers fly
+
+	task.wait(0.6)
+	cornerActive = false
+end
+
 function MatchService.init(_world: WorldService.World)
 	matchStateEvent = Remotes.get(Remotes.MatchState)
 	countdownEvent = Remotes.get(Remotes.Countdown)

@@ -65,6 +65,9 @@ BallService.onRestart = nil :: (((kind: string, team: string) -> ())?)
 BallService.onPassComplete = nil :: (((kickerModel: Model, receiverModel: Model) -> ())?)
 -- Set by Main: BallService.onHeader(byModel, attacking) -- a ball was headed
 BallService.onHeader = nil :: (((byModel: Model, attacking: boolean) -> ())?)
+-- Set by Main: BallService.onCorner(team, spot) -- a corner was awarded; the
+-- set-piece (MatchService) takes over the ball from here instead of a plain restart
+BallService.onCorner = nil :: (((team: string, spot: Vector3) -> ())?)
 
 local ball: Part? = nil
 local shotTrail: Trail? = nil
@@ -841,6 +844,39 @@ function BallService.penaltyStrike(team: string, targetX: number, goalZ: number,
 	return true
 end
 
+-- Whip a lofted CROSS from the planted corner ball to `target` (a point in the box
+-- at head height) so it arrives as a HEADER ball. Ballistic: solved to LAND on the
+-- target after a flight time that's floaty at low `power`, driven at high power.
+function BallService.deliverCross(team: string, target: Vector3, power: number, takerUid: number?, takerModel: Model?): boolean
+	if not ball then
+		return false
+	end
+	power = math.clamp(power, 0, 1)
+	local from = ball.Position
+	setPossession(nil)
+	restartActive = false
+	shotCurve = nil
+	local flat = Vector3.new(target.X - from.X, 0, target.Z - from.Z)
+	local distH = flat.Magnitude
+	local dir = (distH > 0.1) and flat.Unit or Vector3.new(0, 0, 1)
+	local T = 1.1 - 0.4 * power -- flight time: floaty (low power) -> driven (high)
+	local g = Workspace.Gravity
+	ball.Anchored = false
+	ball.AssemblyLinearVelocity = dir * (distH / T) + Vector3.yAxis * (((target.Y - from.Y) + 0.5 * g * T * T) / T)
+	lastKicker = takerModel
+	lastShotAt = os.clock()
+	lastTouchTeam = team
+	lastCarrierTeam = team
+	lastCarrierUserId = takerUid or 0
+	expectedReceiver = nil
+	ignorePickupUntil = os.clock() + KICK.AfterKickGraceSeconds
+	AudioService.kick(0.6)
+	if takerModel then
+		BotAnimationService.kick(takerModel)
+	end
+	return true
+end
+
 -- FIFA rules: over the touchline = throw-in to the other team; over the goal
 -- line outside the goal = corner (if the defenders touched it last) or goal kick.
 local function checkOutOfBounds()
@@ -890,7 +926,18 @@ local function checkOutOfBounds()
 		-- corner for the attack, at the corner flag nearest where it went out
 		local sx = (p.X >= FIELD.CenterX) and 1 or -1
 		local spot = Vector3.new(FIELD.CenterX + sx * (FIELD.Width / 2 - 2), y, endZ - (outZ :: number) * 2)
-		beginRestart("Corner kick", attacker, spot)
+		local cornerCb = BallService.onCorner
+		if cornerCb then
+			restartActive = true -- hold the ball while the set-piece sets up
+			if ball then
+				ball.AssemblyLinearVelocity = Vector3.zero
+				ball.CFrame = CFrame.new(spot)
+				ball.Anchored = true
+			end
+			task.spawn(cornerCb, attacker, spot)
+		else
+			beginRestart("Corner kick", attacker, spot)
+		end
 	else
 		-- goal kick from the front of the goal box
 		if os.clock() - lastShotAt < 2.5 then

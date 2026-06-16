@@ -54,6 +54,9 @@ MatchService.onMatchSetup = TournamentService.beforeMatch
 MatchService.onMatchFinished = TournamentService.afterMatch
 -- the stadium jumbotrons mirror every match-state broadcast
 MatchService.onSnapshot = WorldService.updateScoreboards
+-- a corner becomes an interactive set-piece (box runs + a crossed header) instead
+-- of a plain restart
+BallService.onCorner = MatchService.startCorner
 
 -- 4) Cross-service hooks + client input intents. The server validates everything.
 local STA = GameConfig.Stamina
