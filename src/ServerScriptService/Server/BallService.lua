@@ -68,6 +68,10 @@ BallService.onHeader = nil :: (((byModel: Model, attacking: boolean) -> ())?)
 -- Set by Main: BallService.onCorner(team, spot) -- a corner was awarded; the
 -- set-piece (MatchService) takes over the ball from here instead of a plain restart
 BallService.onCorner = nil :: (((team: string, spot: Vector3) -> ())?)
+-- Set by Main: BallService.onShotResult(shooterUserId, result) -- a human's shot
+-- resolved without a goal: "save" (keeper smothered it) or "wide" (sailed out).
+-- Lets the shooter get a SAVED!/SO CLOSE! cue instead of dead silence.
+BallService.onShotResult = nil :: (((shooterUserId: number, result: string) -> ())?)
 
 local ball: Part? = nil
 local shotTrail: Trail? = nil
@@ -942,6 +946,11 @@ local function checkOutOfBounds()
 		-- goal kick from the front of the goal box
 		if os.clock() - lastShotAt < 2.5 then
 			AudioService.commentary("nearMiss") -- a shot just sailed wide/over
+			-- a HUMAN who just shot it wide gets a "so close" cue, not silence
+			local resultCb = BallService.onShotResult
+			if resultCb and lastCarrierUserId ~= 0 then
+				task.spawn(resultCb, lastCarrierUserId, "wide")
+			end
 		end
 		local spot = Vector3.new(FIELD.CenterX, y, endZ - (outZ :: number) * (FIELD.Length * 0.052 + 2))
 		beginRestart("Goal kick", defender, spot)
@@ -1104,6 +1113,11 @@ local function tryPickup()
 			AudioService.commentary("save")
 			local rel = bp - nearest.root.Position
 			BotAnimationService.keeperDive(nearest.model, rel:Dot(nearest.root.CFrame.RightVector))
+			-- if a HUMAN just shot it (recent shot, not a passback), tell THEM it was saved
+			local resultCb = BallService.onShotResult
+			if resultCb and lastCarrierUserId ~= 0 and os.clock() - lastShotAt < 3 then
+				task.spawn(resultCb, lastCarrierUserId, "save")
+			end
 		end
 		setPossession(nearest.model)
 		if completedBy then

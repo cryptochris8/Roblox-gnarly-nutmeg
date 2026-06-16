@@ -607,6 +607,26 @@ local function playHalf(h: number)
 	state = "Playing"
 	broadcastNow()
 
+	-- Kickoff coaching for our youngest players: at the opening whistle (the highest-
+	-- confusion moment) a one-shot nudge to GO — keepers to mind their net — instead
+	-- of only the reactive "get the ball first" cue. Half-start only (this path never
+	-- runs on an after-goal kickoff), and just the first half so it never nags.
+	if h == 1 and toastEvent then
+		for _, f in ipairs(BallService.listFootballers()) do
+			if not f.isBot then
+				local uid = (f.model:GetAttribute("UserId") :: number?) or 0
+				local plr = uid ~= 0 and Players:GetPlayerByUserId(uid) or nil
+				if plr then
+					toastEvent:FireClient(
+						plr,
+						(f.role == GameConfig.GoalkeeperRole) and "🧤 You're in goal — guard your net!"
+							or "🏃 RUN FOR THE BALL!"
+					)
+				end
+			end
+		end
+	end
+
 	-- The Heartbeat connection drains timeRemaining while state == "Playing".
 	-- Goal celebrations flip state to GoalPause, which pauses the clock.
 	local stoppageAdded = goldenGoal -- no added time in sudden death

@@ -146,6 +146,20 @@ BallService.onHeader = function(byModel, attacking)
 	end
 end
 
+-- A human's shot that didn't find the net: a quick "why" cue instead of dead
+-- silence (the #2 silent-feedback gap), and the crowd groans with them.
+BallService.onShotResult = function(shooterUserId, result)
+	if shooterUserId == 0 then
+		return
+	end
+	local plr = Players:GetPlayerByUserId(shooterUserId)
+	if not plr then
+		return
+	end
+	AudioService.ooh()
+	cue(plr, (result == "save") and "🧤 SAVED! Aim for the corners!" or "😬 SO CLOSE — just wide!")
+end
+
 Remotes.get(Remotes.RequestPass).OnServerEvent:Connect(function(player)
 	local char = player.Character
 	if not char then
