@@ -264,10 +264,14 @@ end
 
 -- During live play: close the panel, and on mobile hide the 📋 button too so
 -- the pitch stays clear. The button returns between matches.
+local questWasActive = false
 function QuestUI.matchActive(active)
-	if active and panel then
+	-- close the panel only on the TRANSITION into play, not on every 1s broadcast —
+	-- otherwise a panel opened mid-match flickers shut (see the note in MenuUI)
+	if active and not questWasActive and panel then
 		panel.Visible = false
 	end
+	questWasActive = active
 	if toggle and UserInputService.TouchEnabled then
 		toggle.Visible = not active
 	end

@@ -18,6 +18,9 @@ local MenuUI = {}
 -- refs to the between-match panels/buttons so MenuUI.matchActive can clear them
 -- off-screen during live play (assigned in mount)
 local refs = nil
+-- last match-active state, so matchActive only clears panels on the TRANSITION into
+-- play, not on every periodic broadcast (which would flicker open panels shut)
+local wasActive = false
 
 function MenuUI.mount(playerGui)
 	local gui = UiTheme.make("ScreenGui", {
@@ -614,7 +617,12 @@ function MenuUI.matchActive(active)
 	if not refs then
 		return
 	end
-	if active then
+	-- Clear open panels ONLY on the transition into play (a real kickoff), NOT on
+	-- every 1s MatchState broadcast. Otherwise a panel you open mid-match — the
+	-- Locker especially — gets yanked shut a second later, which reads as the game
+	-- "minimizing" it every time you try to browse. Once open, it's yours to close.
+	-- (The confirm modal is likewise never cleared here.)
+	if active and not wasActive then
 		if refs.picker then
 			refs.picker.Visible = false
 		end
@@ -624,10 +632,8 @@ function MenuUI.matchActive(active)
 		if refs.howto then
 			refs.howto.Visible = false
 		end
-		-- NOTE: the confirm modal is intentionally NOT cleared here — matchActive
-		-- fires every 1s broadcast, which would clobber a just-opened confirm. It's a
-		-- modal; it persists until the player taps YES/CANCEL.
 	end
+	wasActive = active
 	if UserInputService.TouchEnabled then
 		local show = not active
 		if refs.panel then
