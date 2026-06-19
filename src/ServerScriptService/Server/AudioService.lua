@@ -166,9 +166,9 @@ function AudioService.maybeBanter()
 		if speaking and speaking.IsPlaying then
 			return
 		end
-		nextBanterAt = os.clock() + 35 + math.random() * 40
-		if math.random() > 0.45 then
-			return -- more often than not, the booth just watches
+		nextBanterAt = os.clock() + 18 + math.random() * 20
+		if math.random() > 0.68 then
+			return -- usually the booth chimes in now; sometimes it just watches
 		end
 		local pair = banterPairs[math.random(1, #banterPairs)]
 		commentaryGapUntil = os.clock() + 10
