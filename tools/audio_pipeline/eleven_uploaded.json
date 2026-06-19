@@ -610,5 +610,29 @@
         "file":  "gnarls_trophy2",
         "assetId":  "113356365125676",
         "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_half",
+        "file":  "gnarls_half",
+        "assetId":  "82351859833828",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_half2",
+        "file":  "gnarls_half2",
+        "assetId":  "107428942578263",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_kickoff",
+        "file":  "gnarls_kickoff",
+        "assetId":  "80310444569237",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_kickoff2",
+        "file":  "gnarls_kickoff2",
+        "assetId":  "106154810175887",
+        "state":  "Approved"
     }
 ]

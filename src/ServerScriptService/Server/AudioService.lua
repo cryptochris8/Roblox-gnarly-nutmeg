@@ -107,6 +107,8 @@ local GNARLS_IDS: { [string]: { number } } = {
 	save = { 122238345119539, 80675144442122 },
 	near = { 70785448919812 },
 	trophy = { 79570197844634, 113356365125676 },
+	kickoff = { 82966328586458, 80310444569237, 106154810175887 }, -- hype + 2 kickoff lines
+	halftime = { 82351859833828, 107428942578263 },
 }
 -- commentary kinds that earn a Gnarls topper (goal is hooked separately in .goal)
 local GNARLS_FOR_KIND: { [string]: string } = {
@@ -114,6 +116,8 @@ local GNARLS_FOR_KIND: { [string]: string } = {
 	nutmegCall = "nutmeg",
 	nearMiss = "near",
 	champions = "trophy",
+	kickoff = "kickoff",
+	halftime = "halftime",
 }
 
 -- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);
