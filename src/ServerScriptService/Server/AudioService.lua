@@ -102,11 +102,11 @@ local BANTER_IDS: { { a: number, b: number } } = {
 -- {asset ids}; 0 = pending upload (skipped). He's gated to a TREAT: a cooldown, a
 -- dice, and he only pops a beat AFTER the main call — never over it.
 local GNARLS_IDS: { [string]: { number } } = {
-	goal = { 0, 0 },
-	nutmeg = { 0, 0 },
-	save = { 0, 0 },
-	near = { 0 },
-	trophy = { 0, 0 },
+	goal = { 108114423149728, 72758331563236 },
+	nutmeg = { 76006189217328, 128977555542026 },
+	save = { 122238345119539, 80675144442122 },
+	near = { 70785448919812 },
+	trophy = { 79570197844634, 113356365125676 },
 }
 -- commentary kinds that earn a Gnarls topper (goal is hooked separately in .goal)
 local GNARLS_FOR_KIND: { [string]: string } = {

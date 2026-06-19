@@ -580,5 +580,35 @@
         "file":  "gnarls_nutmeg",
         "assetId":  "76006189217328",
         "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_nutmeg2",
+        "file":  "gnarls_nutmeg2",
+        "assetId":  "128977555542026",
+        "state":  "Reviewing"
+    },
+    {
+        "name":  "GN Announcer - gnarls_save",
+        "file":  "gnarls_save",
+        "assetId":  "122238345119539",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_save2",
+        "file":  "gnarls_save2",
+        "assetId":  "80675144442122",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_trophy",
+        "file":  "gnarls_trophy",
+        "assetId":  "79570197844634",
+        "state":  "Approved"
+    },
+    {
+        "name":  "GN Announcer - gnarls_trophy2",
+        "file":  "gnarls_trophy2",
+        "assetId":  "113356365125676",
+        "state":  "Approved"
     }
 ]
