@@ -50,8 +50,9 @@ local COMMENTARY_IDS: { [string]: { number } } = {
 	nutmegCall = { 125701783571611 },
 }
 
--- the two-man booth riffs during quiet stretches: Sports Guy (a) sets it up,
--- Austin Knox (b) lands the punchline. All Approved & load-verified.
+-- the booth riffs during quiet stretches: Sports Guy (a) sets it up, Austin Knox
+-- (b) lands the punchline — and on a few, GNARLS the squeaky guest tops it. All
+-- Approved & load-verified (22 exchanges; batch 2 = 06-19).
 local BANTER_IDS: { { a: number, b: number } } = {
 	{ a = 94750409325683, b = 130948099061065 },  -- cannon foot / garage
 	{ a = 114120548544185, b = 74493955813883 },  -- keeper organizing / car keys
@@ -59,6 +60,23 @@ local BANTER_IDS: { { a: number, b: number } } = {
 	{ a = 92792415143724, b = 107989056326463 },  -- possession / grandma & the remote
 	{ a = 102837625820968, b = 73706574682729 },  -- clever runs / snack table
 	{ a = 113226800503037, b = 102334559235884 }, -- great shape / round is a shape
+	-- batch 2 (06-19): 12 more Sports Guy/Austin + 4 where GNARLS (the squeaky guest) tops it
+	{ a = 121376742823839, b = 92837161289427 },  -- tracking back / runs away from glory
+	{ a = 89004542337340, b = 104025830073381 },  -- blistering pace / found the buffet
+	{ a = 112201057849779, b = 82341805994810 },  -- high line / softball league
+	{ a = 71348204627653, b = 136841974483494 },  -- slide tackle / getting out of bed
+	{ a = 83296302558670, b = 99668912622212 },   -- vision / snack table from the lot
+	{ a = 76697740782755, b = 77283029895644 },   -- pressing high / I press snooze
+	{ a = 83653011358148, b = 137105387915236 },  -- demanding the ball / my kids do too
+	{ a = 75185783730941, b = 98104153277757 },   -- off the post / never calls in sick
+	{ a = 125553572156808, b = 99217119779704 },  -- footwork / two left feet
+	{ a = 120592262169389, b = 140228995123409 }, -- manager furious / organize the garage
+	{ a = 83735381897422, b = 125101232948468 },  -- recovery / taxes & fantasy team
+	{ a = 71701501939162, b = 115967181647435 },  -- end to end / eyes are tired
+	{ a = 121520560704223, b = 114432172642386 }, -- trophy shiny / GNARLS wants to hold it
+	{ a = 93495680286828, b = 124055166253236 },  -- big chance / GNARLS can't look
+	{ a = 93043895252698, b = 93044133685865 },   -- quiet patch / GNARLS: snacks AND chaos
+	{ a = 138650086474559, b = 112934801284306 }, -- nutmeg / GNARLS: he lives down there
 }
 
 -- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);

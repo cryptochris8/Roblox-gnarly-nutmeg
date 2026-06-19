@@ -9,7 +9,9 @@ Add-Type -AssemblyName System.Net.Http
 $key = $env:ROBLOX_OPEN_CLOUD_KEY
 if (-not $key) { Write-Output 'FATAL: no key'; exit 3 }
 $creatorId = 7230402132
-$gapSeconds = 480
+# trickle gap between uploads (account safety). Default 8 min; override with
+# GN_UPLOAD_GAP for a clean-record audio batch. Still stops on any rejection.
+$gapSeconds = if ($env:GN_UPLOAD_GAP) { [int]$env:GN_UPLOAD_GAP } else { 480 }
 $dir = Join-Path $PSScriptRoot 'eleven'
 $manifestPath = Join-Path $PSScriptRoot 'eleven_uploaded.json'
 $manifest = @()
