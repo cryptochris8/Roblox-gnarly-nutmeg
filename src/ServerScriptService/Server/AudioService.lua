@@ -52,7 +52,7 @@ local COMMENTARY_IDS: { [string]: { number } } = {
 
 -- the booth riffs during quiet stretches: Sports Guy (a) sets it up, Austin Knox
 -- (b) lands the punchline — and on a few, GNARLS the squeaky guest tops it. All
--- Approved & load-verified (22 exchanges; batch 2 = 06-19).
+-- Approved & load-verified (40 exchanges; batches 2-3 = 06-19).
 local BANTER_IDS: { { a: number, b: number } } = {
 	{ a = 94750409325683, b = 130948099061065 },  -- cannon foot / garage
 	{ a = 114120548544185, b = 74493955813883 },  -- keeper organizing / car keys
@@ -77,6 +77,25 @@ local BANTER_IDS: { { a: number, b: number } } = {
 	{ a = 93495680286828, b = 124055166253236 },  -- big chance / GNARLS can't look
 	{ a = 93043895252698, b = 93044133685865 },   -- quiet patch / GNARLS: snacks AND chaos
 	{ a = 138650086474559, b = 112934801284306 }, -- nutmeg / GNARLS: he lives down there
+	-- batch 3 (06-19): 14 more Sports Guy/Austin + 4 GNARLS toppers
+	{ a = 78543358632516, b = 99938030805036 },   -- offside / pizza's late
+	{ a = 136630325462722, b = 106425286196241 }, -- corner delivery / mailman
+	{ a = 76600886363550, b = 112228355117655 },  -- rally the troops / kids for dinner
+	{ a = 84152782230135, b = 100970448545068 },  -- acres of space / quiet Sunday
+	{ a = 114333384968153, b = 104203033622898 }, -- first touch / neighbor's yard
+	{ a = 105041890904869, b = 113502929915115 }, -- buys the foul / concession stand
+	{ a = 75840877023544, b = 109837304157390 },  -- free-kick wall / most organized
+	{ a = 134880207286435, b = 78213534435664 },  -- chasing back / ice cream truck
+	{ a = 102915467372166, b = 84561735422068 },  -- engine / check engine light
+	{ a = 83516865970570, b = 72006162820908 },   -- dummies it / a miss
+	{ a = 77120594804160, b = 116409318559244 },  -- claims the cross / then I had kids
+	{ a = 131437624095485, b = 85397912950872 },  -- disguised pass / turnovers
+	{ a = 99581361177235, b = 94647448603015 },   -- pumping fists / find the remote
+	{ a = 85578801851156, b = 72786462012128 },   -- recovery pace / recovery nap
+	{ a = 134003558166391, b = 95868057396526 },  -- electric / GNARLS touched the electric
+	{ a = 97838007875341, b = 79261842516958 },   -- dancing past / GNARLS: teach me the dance
+	{ a = 86547565640290, b = 136521505263079 },  -- slow burn / GNARLS: eleven snacks
+	{ a = 94953444481427, b = 96867568345754 },   -- what a save / GNARLS: do it again
 }
 
 -- GNARLS reacting LIVE to the big moments (not only quiet stretches). event ->
