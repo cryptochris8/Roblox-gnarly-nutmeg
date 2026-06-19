@@ -79,6 +79,24 @@ local BANTER_IDS: { { a: number, b: number } } = {
 	{ a = 138650086474559, b = 112934801284306 }, -- nutmeg / GNARLS: he lives down there
 }
 
+-- GNARLS reacting LIVE to the big moments (not only quiet stretches). event ->
+-- {asset ids}; 0 = pending upload (skipped). He's gated to a TREAT: a cooldown, a
+-- dice, and he only pops a beat AFTER the main call — never over it.
+local GNARLS_IDS: { [string]: { number } } = {
+	goal = { 0, 0 },
+	nutmeg = { 0, 0 },
+	save = { 0, 0 },
+	near = { 0 },
+	trophy = { 0, 0 },
+}
+-- commentary kinds that earn a Gnarls topper (goal is hooked separately in .goal)
+local GNARLS_FOR_KIND: { [string]: string } = {
+	save = "save",
+	nutmegCall = "nutmeg",
+	nearMiss = "near",
+	champions = "trophy",
+}
+
 -- licensed crowd chant beds (tools/audio_pipeline/upload_chants.ps1);
 -- 0 = not uploaded yet, silently skipped
 local CHANT_IDS = {
@@ -99,6 +117,8 @@ local commentaryGapUntil = 0
 local commentarySpeaking: Sound? = nil
 local banterPairs: { { a: Sound, b: Sound } } = {}
 local nextBanterAt = 0
+local gnarlsReactions: { [string]: { Sound } } = {}
+local gnarlsNextAt = 0
 
 local function makeSound(name: string, id: number, volume: number, looped: boolean): Sound
 	local s = Instance.new("Sound")
@@ -148,6 +168,8 @@ function AudioService.goal(streak: number?)
 		local kind = (streak and streak >= 2 and #(commentaryPools.onFire or {}) > 0) and "onFire" or "goal"
 		AudioService.commentary(kind, true)
 	end)
+	-- a beat after the GOAL call, GNARLS might lose his little mind
+	AudioService.gnarlsReact("goal", 0.32, 4.0)
 	-- the ultras erupt, then settle over the celebration
 	pcall(function()
 		local u = chantUltras
@@ -248,6 +270,43 @@ function AudioService.commentary(kind: string, priority: boolean?)
 		commentarySpeaking = s
 		s.TimePosition = 0
 		s:Play()
+		-- GNARLS may top certain calls (save/nutmeg/near/champions), a beat after
+		local ge = GNARLS_FOR_KIND[kind]
+		if ge then
+			AudioService.gnarlsReact(ge, 0.3, math.max(s.TimeLength, 1.5) + 0.4)
+		end
+	end)
+end
+
+-- GNARLS the squeaky guest pops in AFTER a big-moment call (never over it):
+-- cooldown + diced so he stays a treat, and `delay` lands him once the main line
+-- has ended. No-op until his clips are uploaded (ids still 0).
+function AudioService.gnarlsReact(event: string, chance: number?, delay: number?)
+	pcall(function()
+		local pool = gnarlsReactions[event]
+		if not pool or #pool == 0 then
+			return
+		end
+		if os.clock() < gnarlsNextAt then
+			return
+		end
+		if math.random() > (chance or 0.3) then
+			return
+		end
+		gnarlsNextAt = os.clock() + 22 -- min gap between Gnarls pops
+		local s = pool[math.random(1, #pool)]
+		task.delay(delay or 3.0, function()
+			pcall(function()
+				local sp = commentarySpeaking
+				if sp and sp.IsPlaying then
+					return -- the booth is still talking; let it ride
+				end
+				commentaryGapUntil = os.clock() + 3
+				commentarySpeaking = s
+				s.TimePosition = 0
+				s:Play()
+			end)
+		end)
 	end)
 end
 
@@ -276,6 +335,17 @@ function AudioService.init()
 					a = makeSound("Banter" .. i .. "A", pair.a, 0.85, false),
 					b = makeSound("Banter" .. i .. "B", pair.b, 0.85, false),
 				}
+			end
+		end
+		for event, ids in pairs(GNARLS_IDS) do
+			local pool = {}
+			for _, id in ipairs(ids) do
+				if id ~= 0 then
+					pool[#pool + 1] = makeSound("Gnarls_" .. event .. #pool, id, 0.92, false)
+				end
+			end
+			if #pool > 0 then
+				gnarlsReactions[event] = pool
 			end
 		end
 		-- chant beds idle at zero volume until tension/goals raise them
