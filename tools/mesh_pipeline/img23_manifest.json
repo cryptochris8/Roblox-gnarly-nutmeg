@@ -1,0 +1,30 @@
+﻿{
+    "gnarls_acorn":  {
+                         "taskId":  "019ef493-eda4-78aa-801e-170b2e6be751",
+                         "status":  "done",
+                         "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_acorn.fbx",
+                         "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_acorn_thumb.png",
+                         "credits":  30
+                     },
+    "gnarls_canon":  {
+                         "taskId":  "019ef4b4-29e2-7e54-bad9-2d761e5cfbab",
+                         "status":  "done",
+                         "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_canon.fbx",
+                         "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_canon_thumb.png",
+                         "credits":  30
+                     },
+    "gnarls_cheer":  {
+                         "taskId":  "019ef496-4602-73a1-9a85-158cc4d94ac2",
+                         "status":  "done",
+                         "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_cheer.fbx",
+                         "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_cheer_thumb.png",
+                         "credits":  30
+                     },
+    "gnarls_kick":  {
+                        "taskId":  "019ef498-830b-74a8-b30b-76f74be581a6",
+                        "status":  "done",
+                        "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_kick.fbx",
+                        "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_kick_thumb.png",
+                        "credits":  30
+                    }
+}
