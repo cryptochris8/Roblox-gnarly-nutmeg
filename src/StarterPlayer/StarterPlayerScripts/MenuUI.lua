@@ -323,14 +323,14 @@ function MenuUI.mount(playerGui)
 		Name = "Locker",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.46, 0),
-		Size = UDim2.new(0.92, 0, 0.82, 0),
+		Size = UDim2.new(0.92, 0, 0.86, 0),
 		BackgroundColor3 = C.PanelDark,
 		BackgroundTransparency = 0.05,
 		Visible = false,
 		Parent = gui,
 	})
 	local lockerCap = Instance.new("UISizeConstraint")
-	lockerCap.MaxSize = Vector2.new(560, 430)
+	lockerCap.MaxSize = Vector2.new(560, 470)
 	lockerCap.Parent = locker
 	UiTheme.corner(18, locker)
 	UiTheme.make("TextLabel", {
@@ -390,6 +390,7 @@ function MenuUI.mount(playerGui)
 			local b = UiTheme.make("TextButton", {
 				BackgroundColor3 = (slot == "boots" and (item :: any).color)
 					or (slot == "trail" and (item :: any).c1)
+					or (slot == "costume" and (item :: any).color)
 					or Color3.fromRGB(90, 200, 140),
 				Font = UiTheme.Header,
 				TextScaled = true,
@@ -412,13 +413,14 @@ function MenuUI.mount(playerGui)
 	lockerSection(44, 120, "BOOTS", "boots", Cosmetics.Boots, 4)
 	lockerSection(196, 52, "BALL TRAILS", "trail", Cosmetics.Trails, 5)
 	lockerSection(264, 52, "GOAL CELEBRATIONS", "celebration", Cosmetics.Celebrations, 3)
+	lockerSection(338, 44, "PLAY AS GNARLS — the mascot!", "costume", Cosmetics.Costumes, 2)
 	UiTheme.make("TextLabel", {
 		BackgroundTransparency = 1,
 		Font = UiTheme.Body,
 		TextSize = 13,
 		TextColor3 = C.Sub,
 		Text = "Locked items show their level — every match earns XP!",
-		Position = UDim2.fromOffset(16, 330),
+		Position = UDim2.fromOffset(16, 404),
 		Size = UDim2.new(1, -32, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = locker,

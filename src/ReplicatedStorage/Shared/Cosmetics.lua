@@ -7,6 +7,7 @@
 export type Boot = { id: string, name: string, color: Color3, unlockLevel: number }
 export type TrailStyle = { id: string, name: string, c1: Color3, c2: Color3, unlockLevel: number }
 export type Celebration = { id: string, name: string, animId: number, unlockLevel: number }
+export type Costume = { id: string, name: string, color: Color3, unlockLevel: number }
 
 local Cosmetics = {}
 
@@ -36,6 +37,13 @@ Cosmetics.Celebrations = {
 	{ id = "bounce", name = "Big Bounce", animId = 507777268, unlockLevel = 9 },
 } :: { Celebration }
 
+-- Play AS the mascot: a squirrel costume (ears + a big fluffy tail) layered OVER
+-- your team kit so teams stay readable. Free from level 1 — kids love being Gnarls.
+Cosmetics.Costumes = {
+	{ id = "none", name = "Just Me", color = Color3.fromRGB(120, 124, 134), unlockLevel = 1 },
+	{ id = "gnarls", name = "Gnarls 🐿️", color = Color3.fromRGB(214, 120, 52), unlockLevel = 1 },
+} :: { Costume }
+
 local function findIn<T>(list: { T & { id: string } }, id: string?): (T & { id: string })?
 	for _, item in ipairs(list) do
 		if item.id == id then
@@ -55,6 +63,10 @@ end
 
 function Cosmetics.celebration(id: string?): Celebration?
 	return findIn(Cosmetics.Celebrations, id)
+end
+
+function Cosmetics.costume(id: string?): Costume?
+	return findIn(Cosmetics.Costumes, id)
 end
 
 return Cosmetics
