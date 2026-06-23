@@ -808,6 +808,94 @@ function WorldService.goalLightShow(color: Color3)
 	end)
 end
 
+-- A goal just went in: GNARLS springs up behind the conceding net, spinning and
+-- hopping above the crossbar in the scoring team's colours with a confetti burst,
+-- then shrinks away before the kickoff. Reuses the mascot mesh; one at a time.
+function WorldService.goalCelebration(scoreTeam: string, color: Color3)
+	pcall(function()
+		local pitch = Workspace:FindFirstChild("Pitch")
+		if not pitch then
+			return
+		end
+		local old = pitch:FindFirstChild("GnarlsCelebrate")
+		if old then
+			old:Destroy()
+		end
+		-- the scoring team buried it in the OPPONENT's goal (Blue defends -Z, Red +Z)
+		local atMinZ = (scoreTeam == "Red")
+		local goalZ = atMinZ and FIELD.MinZ or FIELD.MaxZ
+		local dir = atMinZ and -1 or 1
+		local cz = goalZ + dir * (GOAL.Depth + 5)
+		local baseYaw = atMinZ and math.rad(180) or 0
+		local g = FIELD.GroundY
+		local m = loadProp(PROP_IDS.mascotStatue, 14)
+		if not m then
+			return
+		end
+		m.Name = "GnarlsCelebrate"
+		local pp = m.PrimaryPart
+		if not pp then
+			m:Destroy()
+			return
+		end
+		local fullScale = m:GetScale()
+		-- team-colour glow + a confetti fountain riding the mascot
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Brightness = 2.8
+		light.Range = 30
+		light.Parent = pp
+		local conf = Instance.new("ParticleEmitter")
+		conf.Rate = 70
+		conf.Lifetime = NumberRange.new(0.8, 1.7)
+		conf.Speed = NumberRange.new(9, 17)
+		conf.SpreadAngle = Vector2.new(180, 180)
+		conf.Acceleration = Vector3.new(0, -20, 0)
+		conf.Size = NumberSequence.new(0.5)
+		conf.Rotation = NumberRange.new(0, 360)
+		conf.RotSpeed = NumberRange.new(-220, 220)
+		conf.Color = ColorSequence.new(color, Color3.fromRGB(255, 224, 140))
+		conf.LightEmission = 0.4
+		conf.Parent = pp
+		m:ScaleTo(fullScale * 0.02)
+		m.Parent = pitch
+		local function easeOutBack(p: number): number
+			local c1 = 1.70158
+			local q = p - 1
+			return 1 + (c1 + 1) * q * q * q + c1 * q * q
+		end
+		task.spawn(function()
+			local RunService = game:GetService("RunService")
+			local dur = math.max(2.6, (GameConfig.GoalCelebrationSeconds or 4) - 0.3)
+			local t0 = os.clock()
+			local lastScale = -1
+			while m.Parent do
+				local t = os.clock() - t0
+				if t >= dur then
+					break
+				end
+				local scale = fullScale
+				if t < 0.34 then
+					scale = fullScale * math.max(0.02, easeOutBack(t / 0.34))
+				elseif t > dur - 0.34 then
+					scale = fullScale * math.max(0, (dur - t) / 0.34)
+				end
+				if math.abs(scale - lastScale) > 0.001 then
+					m:ScaleTo(scale)
+					lastScale = scale
+				end
+				local spin = t * math.rad(230)
+				local bounce = 4 + math.abs(math.sin(t * 5.5)) * 6 -- hovers above the crossbar
+				m:PivotTo(CFrame.new(CX, g + bounce, cz) * CFrame.Angles(0, baseYaw + spin, 0) * CFrame.Angles(math.rad(90), 0, 0))
+				RunService.Heartbeat:Wait()
+			end
+			if m and m.Parent then
+				m:Destroy()
+			end
+		end)
+	end)
+end
+
 local function tuneLighting()
 	pcall(function()
 		-- The template ships a broken/black skybox: with environment lighting on,

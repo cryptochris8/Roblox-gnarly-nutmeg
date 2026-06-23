@@ -282,6 +282,7 @@ local function onGoal(scoreTeam: string)
 	end
 	AudioService.goal(streak)
 	WorldService.goalLightShow(TeamService.info(scoreTeam).color)
+	WorldService.goalCelebration(scoreTeam, TeamService.info(scoreTeam).color)
 	pcall(celebrate, scoreTeam)
 	broadcastNow()
 
