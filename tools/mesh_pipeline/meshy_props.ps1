@@ -25,6 +25,10 @@ $props = [ordered]@{
     trophy        = 'A gleaming golden soccer trophy: a tall polished gold cup with two elegant curved handles, on a small round golden base, original design, game asset'
     tv_camera     = 'A professional broadcast television camera on a sturdy tripod, dark gray body with a large round lens and a small side monitor, stadium TV camera, game asset'
     mascot_statue = 'A cheerful cartoon squirrel mascot statue holding a soccer ball under one arm, warm bronze metal statue standing on a simple stone pedestal, family friendly, game asset'
+    # GNARLS the mascot, new poses (06-23): full-body characters, no pedestal
+    gnarls_cheer  = 'A cheerful orange cartoon squirrel mascot character cheering with both arms raised high in the air, big happy open smile, fluffy bushy tail, wearing a white soccer jersey, full body standing, no base, family friendly, game asset'
+    gnarls_acorn  = 'A cute orange cartoon squirrel mascot character happily holding a large brown acorn nut in both paws, fluffy bushy tail, wearing a white soccer jersey, full body standing, no base, family friendly, game asset'
+    gnarls_kick   = 'An orange cartoon squirrel mascot character kicking a soccer ball with one foot in a dynamic action pose, fluffy bushy tail, wearing a white soccer jersey, full body, no base, family friendly, game asset'
 }
 
 $manifest = @{}
