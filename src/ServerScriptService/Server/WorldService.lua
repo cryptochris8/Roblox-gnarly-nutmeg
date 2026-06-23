@@ -652,17 +652,134 @@ local function buildHeroProps(parent: Instance)
 			local pos = Vector3.new(x, camY, CZ)
 			placeProp(PROP_IDS.tvCamera, 6, CFrame.lookAt(pos, Vector3.new(0, FIELD.GroundY + 2, 0)), parent)
 		end
-		-- the stadium plaza beyond the -Z end: the club mascot greets arrivals
-		-- (offset clear of the jumbotron legs; faces the stadium; Z-up export
-		-- needs the +90° pitch — orientation verified live 2026-06-12)
-		placeProp(
-			PROP_IDS.mascotStatue,
-			16,
-			CFrame.new(CX - 34, FIELD.GroundY + 20, FIELD.MinZ - 68),
-			parent,
-			CFrame.Angles(math.rad(90), 0, 0),
-			true
-		)
+	end)
+end
+
+-- ---- Mascot showcase: GNARLS, the club's landmark statue --------------------
+-- The mascot is promoted from a tucked-away plaza greeter to a proper monument:
+-- an illuminated slate-and-gold plinth behind the Blue end, warm spotlights, a
+-- glowing GNARLS nameplate that always faces the camera, and a slow sparkle. It
+-- reads as a hero landmark from the pitch and is where the kickoff flyover settles.
+-- (Same mesh, 102627059380175; +90° pitch tilt verified live 2026-06-12.)
+local MASCOT_SHOWCASE = { x = CX + 30, z = FIELD.MinZ - 96, height = 26 }
+
+local function buildMascotShowcase(parent: Instance)
+	pcall(function()
+		local sx, sz = MASCOT_SHOWCASE.x, MASCOT_SHOWCASE.z
+		local g = FIELD.GroundY
+		-- a plaza pad so the monument sits on ground, not floating over the void
+		local pad = block("MascotPlaza", Vector3.new(48, 1, 48), CFrame.new(sx, g - 0.5, sz), Color3.fromRGB(72, 78, 88), parent)
+		pad.Material = Enum.Material.Concrete
+		-- stacked plinth: wide slate base -> step -> gold cap
+		local b1 = block("MascotPlinthBase", Vector3.new(28, 3, 28), CFrame.new(sx, g + 1.5, sz), Color3.fromRGB(58, 64, 76), parent)
+		b1.Material = Enum.Material.Slate
+		local b2 = block("MascotPlinthStep", Vector3.new(21, 3, 21), CFrame.new(sx, g + 4.5, sz), Color3.fromRGB(86, 92, 104), parent)
+		b2.Material = Enum.Material.Slate
+		local capTopY = g + 9
+		local cap = block("MascotPlinthCap", Vector3.new(15, 3, 15), CFrame.new(sx, g + 7.5, sz), Color3.fromRGB(206, 168, 74), parent)
+		cap.Material = Enum.Material.Metal
+		-- glowing gold trim rails around the cap edge
+		for _, e in ipairs({ { dx = 7.3, dz = 0, w = 0.5, d = 15 }, { dx = -7.3, dz = 0, w = 0.5, d = 15 }, { dx = 0, dz = 7.3, w = 15, d = 0.5 }, { dx = 0, dz = -7.3, w = 15, d = 0.5 } }) do
+			local rail = block("MascotTrim", Vector3.new(e.w, 0.5, e.d), CFrame.new(sx + e.dx, capTopY + 0.2, sz + e.dz), Color3.fromRGB(255, 214, 96), parent)
+			rail.Material = Enum.Material.Neon
+			rail.CanCollide = false
+		end
+		-- the mascot itself, standing on the cap, facing the pitch (+Z). Identity
+		-- yaw + the proven 180° flip + 90° pitch (a lookAt yaw fights the Z-up tilt
+		-- and spins him sideways — verified live 2026-06-23).
+		local m = loadProp(PROP_IDS.mascotStatue, MASCOT_SHOWCASE.height)
+		if m then
+			local cf = CFrame.new(sx, capTopY, sz)
+			m:PivotTo(cf * CFrame.Angles(0, math.rad(180), 0) * CFrame.Angles(math.rad(90), 0, 0))
+			m.Parent = parent
+			local ext = m:GetExtentsSize()
+			local box = m:GetBoundingBox()
+			local bottomY = box.Position.Y - ext.Y / 2
+			m:PivotTo(m:GetPivot() + Vector3.new(0, capTopY - bottomY, 0))
+		end
+		local headY = capTopY + MASCOT_SHOWCASE.height
+		-- warm spotlights flanking the plinth
+		for _, side in ipairs({ -1, 1 }) do
+			local lamp = block("MascotLamp", Vector3.new(1.4, 1.4, 1.4), CFrame.new(sx + side * 12, g + 4, sz + 10), Color3.fromRGB(255, 240, 210), parent)
+			lamp.Material = Enum.Material.Neon
+			lamp.CanCollide = false
+			local sl = Instance.new("SpotLight")
+			sl.Face = Enum.NormalId.Top
+			sl.Angle = 80
+			sl.Range = 70
+			sl.Brightness = 3.5
+			sl.Color = Color3.fromRGB(255, 236, 196)
+			sl.Parent = lamp
+		end
+		-- soft gold glow + an attention sparkle on the mascot
+		local glowPart = block("MascotGlow", Vector3.new(1, 1, 1), CFrame.new(sx, capTopY + MASCOT_SHOWCASE.height * 0.5, sz), Color3.fromRGB(255, 220, 120), parent)
+		glowPart.Transparency = 1
+		glowPart.CanCollide = false
+		glowPart.CanQuery = false
+		local pl = Instance.new("PointLight")
+		pl.Color = Color3.fromRGB(255, 214, 150)
+		pl.Brightness = 2.4
+		pl.Range = 34
+		pl.Parent = glowPart
+		local sparkle = Instance.new("ParticleEmitter")
+		sparkle.Rate = 6
+		sparkle.Lifetime = NumberRange.new(1.4, 2.6)
+		sparkle.Speed = NumberRange.new(1, 3)
+		sparkle.SpreadAngle = Vector2.new(180, 180)
+		sparkle.Acceleration = Vector3.new(0, 2.5, 0)
+		sparkle.Size = NumberSequence.new(0.55)
+		sparkle.LightEmission = 1
+		sparkle.Rotation = NumberRange.new(0, 360)
+		sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 224, 140))
+		sparkle.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		sparkle.Parent = glowPart
+		-- the GNARLS nameplate: a billboard plaque above his head
+		local plate = block("MascotNameplate", Vector3.new(1, 1, 1), CFrame.new(sx, headY + 4.5, sz), Color3.fromRGB(0, 0, 0), parent)
+		plate.Transparency = 1
+		plate.CanCollide = false
+		plate.CanQuery = false
+		local bb = Instance.new("BillboardGui")
+		bb.Name = "GnarlsPlate"
+		bb.Size = UDim2.fromScale(22, 7)
+		bb.MaxDistance = 460
+		bb.LightInfluence = 0
+		bb.Adornee = plate
+		bb.Parent = plate
+		local card = Instance.new("Frame")
+		card.Size = UDim2.fromScale(1, 1)
+		card.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
+		card.BackgroundTransparency = 0.12
+		card.BorderSizePixel = 0
+		card.Parent = bb
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.2, 0)
+		corner.Parent = card
+		local cardStroke = Instance.new("UIStroke")
+		cardStroke.Color = Color3.fromRGB(255, 214, 96)
+		cardStroke.Thickness = 3
+		cardStroke.Parent = card
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Position = UDim2.fromScale(0.04, 0.07)
+		nameLabel.Size = UDim2.fromScale(0.92, 0.6)
+		nameLabel.Font = Enum.Font.GothamBlack
+		nameLabel.Text = "GNARLS"
+		nameLabel.TextScaled = true
+		nameLabel.TextColor3 = Color3.fromRGB(255, 220, 120)
+		nameLabel.Parent = card
+		local nameStroke = Instance.new("UIStroke")
+		nameStroke.Color = Color3.fromRGB(24, 18, 8)
+		nameStroke.Thickness = 2
+		nameStroke.Parent = nameLabel
+		local subLabel = Instance.new("TextLabel")
+		subLabel.BackgroundTransparency = 1
+		subLabel.Position = UDim2.fromScale(0.04, 0.66)
+		subLabel.Size = UDim2.fromScale(0.92, 0.28)
+		subLabel.Font = Enum.Font.GothamBold
+		subLabel.Text = "★ CLUB MASCOT ★"
+		subLabel.TextScaled = true
+		subLabel.TextColor3 = Color3.fromRGB(236, 240, 250)
+		subLabel.Parent = card
 	end)
 end
 
@@ -807,6 +924,7 @@ function WorldService.build(): World
 	buildJumbotrons(pitch)
 	buildDugouts(pitch)
 	buildHeroProps(pitch)
+	buildMascotShowcase(pitch)
 	tuneLighting()
 
 	local spawnPad = Instance.new("SpawnLocation")
