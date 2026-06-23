@@ -1,7 +1,7 @@
 # Matching 512x512 game icon: Gnarls hero on a pitch gradient (reads at small size).
 Add-Type -AssemblyName System.Drawing
 $dir = $PSScriptRoot
-$gnarlsPath = Join-Path (Split-Path $dir -Parent) 'mesh_pipeline\output\mascot_statue_thumb.png'
+$gnarlsPath = Join-Path $dir 'gnarls_canon\canon_cut.png'  # canon Gnarls (bg removed)
 $trophyPath = Join-Path (Split-Path $dir -Parent) 'mesh_pipeline\output\trophy_thumb.png'
 
 function New-Gfx([System.Drawing.Bitmap]$bmp) {
@@ -50,9 +50,9 @@ $glowPath = New-Object System.Drawing.Drawing2D.GraphicsPath; $glowPath.AddEllip
 $glow = New-Object System.Drawing.Drawing2D.PathGradientBrush($glowPath)
 $glow.CenterColor = [System.Drawing.Color]::FromArgb(95, 255, 220, 120); $glow.SurroundColors = @([System.Drawing.Color]::FromArgb(0, 255, 220, 120))
 $g.FillPath($glow, $glowPath); $glowPath.Dispose(); $glow.Dispose()
-# Gnarls big (face + ball fill the icon; base drops off the bottom)
-$gn = Load-Transparent $gnarlsPath
-$g.DrawImage($gn, 26, 28, 470, 470); $gn.Dispose()
+# Gnarls big (canon cutout; head near the top, legs run under the brand bar)
+$gn = New-Object System.Drawing.Bitmap $gnarlsPath
+$g.DrawImage($gn, -18, -22, 560, 746); $gn.Dispose()
 # small trophy accent, top-right
 $trophy = Load-Transparent $trophyPath
 $g.DrawImage($trophy, 372, 8, 150, 150); $trophy.Dispose()

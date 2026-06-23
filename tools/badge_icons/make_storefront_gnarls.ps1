@@ -4,7 +4,7 @@
 Add-Type -AssemblyName System.Drawing
 $dir = $PSScriptRoot
 $bgPath = Join-Path $dir 'hero\bg_graded.png'
-$gnarlsPath = Join-Path (Split-Path $dir -Parent) 'mesh_pipeline\output\mascot_statue_thumb.png'
+$gnarlsPath = Join-Path $dir 'gnarls_canon\canon_cut.png'  # canon Gnarls, bg removed (real PNG/alpha)
 $trophyPath = Join-Path (Split-Path $dir -Parent) 'mesh_pipeline\output\trophy_thumb.png'
 
 function New-Gfx([System.Drawing.Bitmap]$bmp) {
@@ -78,9 +78,9 @@ $glow.CenterColor = [System.Drawing.Color]::FromArgb(120, 255, 208, 92); $glow.S
 $g.FillPath($glow, $glowPath); $glowPath.Dispose(); $glow.Dispose()
 $trophy = Load-Transparent $trophyPath; $g.DrawImage($trophy, 1610, 28, 300, 300); $trophy.Dispose()
 
-# GNARLS hero, big on the left (base sits at the bottom edge)
-$gn = Load-Transparent $gnarlsPath
-$g.DrawImage($gn, 5, 175, 905, 905); $gn.Dispose()
+# GNARLS hero (canon cutout, already transparent), big full-body on the left
+$gn = New-Object System.Drawing.Bitmap $gnarlsPath
+$g.DrawImage($gn, -35, 8, 810, 1080); $gn.Dispose()
 
 # wordmark on the right (stacked)
 Draw-Wordmark $g 1370 360 140

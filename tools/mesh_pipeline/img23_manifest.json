@@ -20,6 +20,13 @@
                          "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_cheer_thumb.png",
                          "credits":  30
                      },
+    "gnarls_cheer_canon":  {
+                               "taskId":  "019ef4f7-9399-7ecb-baea-41a43e9a3b63",
+                               "status":  "done",
+                               "fbx":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_cheer_canon.fbx",
+                               "thumb":  "C:\\Users\\chris\\Roblox-gnarly-nutmeg\\tools\\mesh_pipeline\\output\\img23\\gnarls_cheer_canon_thumb.png",
+                               "credits":  30
+                           },
     "gnarls_kick":  {
                         "taskId":  "019ef498-830b-74a8-b30b-76f74be581a6",
                         "status":  "done",
