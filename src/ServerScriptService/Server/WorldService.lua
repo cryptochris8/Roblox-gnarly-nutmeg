@@ -783,6 +783,111 @@ local function buildMascotShowcase(parent: Instance)
 	end)
 end
 
+-- Stadium grounds: an exterior so the bowl + the GNARLS plaza statue don't float
+-- over the void. A big asphalt lot under everything, a raised concrete plaza ring
+-- hugging the stands, painted parking bays with simple cars, a ring of skyline
+-- buildings, and light poles. All anchored, non-colliding, shadowless decor
+-- (players never leave the bowl) — cheap on mobile.
+local function buildStadiumGrounds(parent: Instance)
+	pcall(function()
+		local rng = Random.new(6232026)
+		local GY = FIELD.GroundY
+		local function dec(p: BasePart): BasePart
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CastShadow = false
+			return p
+		end
+		local function flat(name: string, cx: number, cz: number, sx: number, sz: number, topY: number, color: Color3, mat: Enum.Material): BasePart
+			local p = block(name, Vector3.new(sx, 2, sz), CFrame.new(cx, topY - 1, cz), color, parent)
+			p.Material = mat
+			return dec(p)
+		end
+		-- ground: big asphalt lot under everything + a raised concrete plaza ring
+		flat("LotAsphalt", CX, CZ, 580, 740, GY - 0.25, Color3.fromRGB(52, 54, 60), Enum.Material.Asphalt)
+		flat("Plaza", CX, CZ, 330, 450, GY - 0.10, Color3.fromRGB(118, 120, 126), Enum.Material.Concrete)
+
+		-- a simple parked car (body + cabin), nose set by yaw
+		local carCols = {
+			Color3.fromRGB(198, 62, 56), Color3.fromRGB(58, 92, 188), Color3.fromRGB(228, 228, 232),
+			Color3.fromRGB(38, 42, 50), Color3.fromRGB(72, 150, 92), Color3.fromRGB(228, 182, 62), Color3.fromRGB(150, 92, 198),
+		}
+		local function car(x: number, z: number, yaw: number)
+			local col = carCols[rng:NextInteger(1, #carCols)]
+			local body = block("Car", Vector3.new(4.2, 1.5, 8.2), CFrame.new(x, GY + 0.75, z) * CFrame.Angles(0, yaw, 0), col, parent)
+			body.Material = Enum.Material.SmoothPlastic
+			dec(body)
+			local cabin = block("CarTop", Vector3.new(3.7, 1.4, 4.0), CFrame.new(x, GY + 2.0, z) * CFrame.Angles(0, yaw, 0), Color3.fromRGB(40, 44, 54), parent)
+			cabin.Material = Enum.Material.SmoothPlastic
+			dec(cabin)
+		end
+		local function parkingLot(cx: number, cz: number, nx: number, nz: number)
+			local bayW, bayL = 5, 10
+			local W, L = nx * bayW, nz * bayL
+			local x0, z0 = cx - W / 2, cz - L / 2
+			for i = 0, nx do
+				dec(block("LotLine", Vector3.new(0.22, 0.06, L), CFrame.new(x0 + i * bayW, GY + 0.02, cz), Color3.fromRGB(228, 228, 222), parent))
+			end
+			for ix = 0, nx - 1 do
+				for iz = 0, nz - 1 do
+					if rng:NextNumber() < 0.55 then
+						car(x0 + (ix + 0.5) * bayW, z0 + (iz + 0.5) * bayL, (iz % 2 == 0) and 0 or math.pi)
+					end
+				end
+			end
+		end
+		parkingLot(CX - 96, FIELD.MinZ - 92, 6, 4)
+		parkingLot(CX + 104, FIELD.MinZ - 92, 5, 4)
+		parkingLot(CX, FIELD.MaxZ + 96, 8, 4)
+
+		-- a skyline building (box + opaque window bands + roof cap)
+		local bCols = {
+			Color3.fromRGB(96, 100, 110), Color3.fromRGB(122, 112, 98), Color3.fromRGB(82, 98, 122),
+			Color3.fromRGB(138, 120, 110), Color3.fromRGB(70, 74, 82),
+		}
+		local winCol = Color3.fromRGB(150, 198, 232)
+		local function building(x: number, z: number, w: number, d: number, h: number)
+			local body = block("Building", Vector3.new(w, h, d), CFrame.new(x, GY + h / 2, z), bCols[rng:NextInteger(1, #bCols)], parent)
+			body.Material = Enum.Material.SmoothPlastic
+			dec(body)
+			local bands = math.max(2, math.floor(h / 14))
+			for b = 1, bands do
+				local by = GY + (b / (bands + 1)) * h
+				local wb = block("Win", Vector3.new(w + 0.2, 2.2, d + 0.2), CFrame.new(x, by, z), winCol, parent)
+				wb.Material = Enum.Material.SmoothPlastic
+				dec(wb)
+			end
+			dec(block("Roof", Vector3.new(w * 0.55, 2.5, d * 0.55), CFrame.new(x, GY + h + 1.25, z), Color3.fromRGB(58, 60, 66), parent))
+		end
+		local function row(axis: string, sign: number, span: number, outset: number, count: number, hmin: number, hmax: number)
+			for i = 1, count do
+				local t = (i - 0.5) / count
+				local jitter = rng:NextNumber(-10, 10)
+				if axis == "z" then
+					building(CX - span / 2 + t * span + jitter * 0.4, sign * outset + jitter, rng:NextNumber(24, 46), rng:NextNumber(20, 32), rng:NextNumber(hmin, hmax))
+				else
+					building(sign * outset + jitter, CZ - span / 2 + t * span + jitter * 0.4, rng:NextNumber(20, 32), rng:NextNumber(24, 46), rng:NextNumber(hmin, hmax))
+				end
+			end
+		end
+		row("z", -1, 480, 305, 7, 34, 94) -- behind the Blue end (behind the mascot)
+		row("z", 1, 480, 312, 7, 32, 86)  -- behind the Red end
+		row("x", -1, 400, 256, 6, 30, 80) -- west
+		row("x", 1, 400, 262, 6, 30, 80)  -- east
+
+		-- parking-lot light poles
+		local function pole(x: number, z: number)
+			dec(block("LotPole", Vector3.new(0.8, 22, 0.8), CFrame.new(x, GY + 11, z), Color3.fromRGB(38, 40, 46), parent))
+			local lamp = block("LotLamp", Vector3.new(4.5, 0.8, 2), CFrame.new(x, GY + 22, z), Color3.fromRGB(255, 250, 225), parent)
+			lamp.Material = Enum.Material.Neon
+			dec(lamp)
+		end
+		for _, p in ipairs({ { -150, -210 }, { -30, -265 }, { 95, -210 }, { 160, -150 }, { -150, 205 }, { 55, 265 }, { 165, 150 } }) do
+			pole(p[1], p[2])
+		end
+	end)
+end
+
 -- After a goal the floodlights pulse the scoring team's colour, then settle
 -- back to broadcast white (wired from MatchService's goal flow).
 function WorldService.goalLightShow(color: Color3)
@@ -1013,6 +1118,7 @@ function WorldService.build(): World
 	buildDugouts(pitch)
 	buildHeroProps(pitch)
 	buildMascotShowcase(pitch)
+	buildStadiumGrounds(pitch)
 	tuneLighting()
 
 	local spawnPad = Instance.new("SpawnLocation")
